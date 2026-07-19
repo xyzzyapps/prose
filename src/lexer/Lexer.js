@@ -335,14 +335,50 @@ export class Lexer {
     const startLine = this.line;
     const startCol = this.column;
     this._advance(); // skip opening "
+
+    let hasInterp = false;
     let value = '';
+    const segments = []; // [{t:'text',v:'...'} | {t:'var',n:'Name'}]
+
     while (this.pos < this.source.length) {
       const ch = this.source[this.pos];
+
       if (ch === '"') {
         this._advance(); // skip closing "
-        this._emit(TokenType.TEXT, value, startLine, startCol);
+        if (hasInterp) {
+          if (value.length > 0) segments.push({ t: 'text', v: value });
+          this._emit(TokenType.INTERPOLATED, JSON.stringify(segments), startLine, startCol);
+        } else {
+          this._emit(TokenType.TEXT, value, startLine, startCol);
+        }
         return;
       }
+
+      // Check for ${variable} interpolation
+      if (ch === '$' && this.pos + 1 < this.source.length && this.source[this.pos + 1] === '{') {
+        hasInterp = true;
+        if (value.length > 0) {
+          segments.push({ t: 'text', v: value });
+          value = '';
+        }
+        this._advance(); // skip $
+        this._advance(); // skip {
+        // Read variable name until }
+        let varName = '';
+        while (this.pos < this.source.length && this.source[this.pos] !== '}') {
+          if (this._isNewline(this.source[this.pos])) {
+            throw new SyntaxError('Unterminated interpolation', startLine, startCol);
+          }
+          varName += this.source[this.pos];
+          this._advance();
+        }
+        if (this.pos < this.source.length) {
+          this._advance(); // skip }
+        }
+        segments.push({ t: 'var', n: varName.trim() });
+        continue;
+      }
+
       if (ch === '\\' && this.pos + 1 < this.source.length) {
         this._advance();
         const escaped = this.source[this.pos];
@@ -352,6 +388,7 @@ export class Lexer {
           case 'r': value += '\r'; break;
           case '"': value += '"'; break;
           case '\\': value += '\\'; break;
+          case '$': value += '$'; break;
           default: value += escaped; break;
         }
         this._advance();

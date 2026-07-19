@@ -24,6 +24,7 @@ export const TokenType = {
   TEXT: 'TEXT',           // "hello"
   HEREDOC: 'HEREDOC',     // multiline text block
   BRACEBLOCK: 'BRACEBLOCK', // raw text between { } (for DSLs)
+  INTERPOLATED: 'INTERPOLATED', // "Hello, ${name}!" with embedded variables
 
   // Identifiers
   WORD: 'WORD',           // identifiers, keywords, verbs

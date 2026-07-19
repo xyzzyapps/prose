@@ -65,6 +65,69 @@ export function registerBuiltins(env, interpreter) {
       return new NumberValue(b - a);
     }
   });
+
+  // String manipulation builtins
+  env.defineVerb('split', {
+    name: 'split',
+    params: ['text', 'by', 'delimiter'],
+    closure: env,
+    native: true,
+    execute(args, env, interp) {
+      const text = interp.stringify(args[0]);
+      const delim = interp.stringify(args[2]);
+      const parts = text.split(delim);
+      const list = new ListValue();
+      for (const p of parts) list.push(new TextValue(p));
+      return list;
+    }
+  });
+
+  env.defineVerb('join', {
+    name: 'join',
+    params: ['list', 'with', 'delimiter'],
+    closure: env,
+    native: true,
+    execute(args, env, interp) {
+      const list = args[0];
+      const delim = interp.stringify(args[2]);
+      if (!(list instanceof ListValue)) throw new RuntimeError('join requires a List');
+      const parts = list.items.map(i => interp.stringify(i));
+      return new TextValue(parts.join(delim));
+    }
+  });
+
+  env.defineVerb('replace', {
+    name: 'replace',
+    params: ['in', 'text', 'replace', 'old', 'with', 'new'],
+    closure: env,
+    native: true,
+    execute(args, env, interp) {
+      const text = interp.stringify(args[1]);
+      const oldStr = interp.stringify(args[3]);
+      const newStr = interp.stringify(args[5]);
+      return new TextValue(text.split(oldStr).join(newStr));
+    }
+  });
+
+  env.defineVerb('uppercase', {
+    name: 'uppercase',
+    params: ['text'],
+    closure: env,
+    native: true,
+    execute(args, env, interp) {
+      return new TextValue(interp.stringify(args[0]).toUpperCase());
+    }
+  });
+
+  env.defineVerb('lowercase', {
+    name: 'lowercase',
+    params: ['text'],
+    closure: env,
+    native: true,
+    execute(args, env, interp) {
+      return new TextValue(interp.stringify(args[0]).toLowerCase());
+    }
+  });
 }
 
 /**

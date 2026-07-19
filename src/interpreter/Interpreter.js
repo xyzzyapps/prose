@@ -21,6 +21,7 @@ import {
   WheneverStmt, MutationStmt, ResultStmt, ExpressionStmt,
   UsingStmt, ShellStmt, ShellExpr,
   TryStmt, ReadFileStmt, WriteFileStmt, JsonParseExpr, LogicalExpr,
+  EnvVarExpr, FetchExpr, RangeForStmt, PipeShellStmt, IncludeStmt,
   LiteralExpr, VariableExpr, PropertyAccessExpr,
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from '../parser/AST.js';
@@ -160,6 +161,8 @@ export class Interpreter {
       case ShellExpr: return this._evalShellExpr(expr);
       case JsonParseExpr: return this._evalJsonParse(expr);
       case LogicalExpr: return this._evalLogical(expr);
+      case EnvVarExpr: return this._evalEnvVar(expr);
+      case FetchExpr: return this._evalFetch(expr);
       default:
         throw new RuntimeError(
           `Unknown expression type: ${expr.constructor.name}`,
@@ -200,6 +203,9 @@ export class Interpreter {
       case TryStmt: return this._execTry(stmt);
       case ReadFileStmt: return this._execReadFile(stmt);
       case WriteFileStmt: return this._execWriteFile(stmt);
+      case RangeForStmt: return this._execRangeFor(stmt);
+      case PipeShellStmt: return this._execPipeShell(stmt);
+      case IncludeStmt: return this._execInclude(stmt);
       default:
         throw new RuntimeError(
           `Unknown statement type: ${stmt.constructor.name}`,
@@ -223,6 +229,8 @@ export class Interpreter {
         return new TextValue(expr.rawValue);
       case 'braceblock':
         return new TextValue(expr.rawValue);
+      case 'interpolated':
+        return this._evalInterpolated(expr.rawValue);
       default:
         return new TextValue(expr.rawValue);
     }
@@ -910,6 +918,96 @@ export class Interpreter {
     if (leftTruthy) return new NumberValue(1);
     const right = this.evaluate(expr.right);
     return new NumberValue(this.isTruthy(right) ? 1 : 0);
+  }
+
+  /** Expand an interpolated string from JSON segments */
+  _evalInterpolated(rawJson) {
+    try {
+      const segments = JSON.parse(rawJson);
+      let result = '';
+      for (const seg of segments) {
+        if (seg.t === 'text') {
+          result += seg.v;
+        } else if (seg.t === 'var') {
+          const val = this.env.lookup(seg.n);
+          result += val ? this.stringify(val) : '';
+        }
+      }
+      return new TextValue(result);
+    } catch (e) {
+      return new TextValue(rawJson);
+    }
+  }
+
+  /** @param {EnvVarExpr} expr */
+  _evalEnvVar(expr) {
+    const nameVal = this.evaluate(expr.nameExpr);
+    const varName = this.stringify(nameVal);
+    const value = process.env[varName] || '';
+    return new TextValue(value);
+  }
+
+  /** @param {FetchExpr} expr */
+  _evalFetch(expr) {
+    const urlVal = this.evaluate(expr.urlExpr);
+    const url = this.stringify(urlVal);
+    logger.debug(`Fetching URL: ${url}`);
+    try {
+      const result = child_process.spawnSync('node', [
+        '-e',
+        `const{h}=require('${url.startsWith('https') ? 'https' : 'http'}');h.get("${url.replace(/"/g, '\\"')}",r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>console.log(d))}).on('error',e=>{console.error(e.message);process.exit(1)})`
+      ], { encoding: 'utf-8', timeout: 15000, windowsHide: true });
+      if (result.error || result.status !== 0) {
+        throw new Error(result.stderr || 'HTTP request failed');
+      }
+      return new TextValue(result.stdout);
+    } catch (e) {
+      throw new RuntimeError(`Cannot fetch "${url}": ${e.message}`, expr.line, expr.column);
+    }
+  }
+
+  /** @param {RangeForStmt} stmt */
+  _execRangeFor(stmt) {
+    const fromVal = this.evaluate(stmt.fromExpr);
+    const toVal = this.evaluate(stmt.toExpr);
+    const from = this.toNumber(fromVal);
+    const to = this.toNumber(toVal);
+
+    for (let i = from; i <= to; i++) {
+      this.env.define('_index', new NumberValue(i));
+      this._executeBlock(stmt.body);
+    }
+    return NULL;
+  }
+
+  /** @param {PipeShellStmt} stmt */
+  _execPipeShell(stmt) {
+    const cmd1 = this.stringify(this.evaluate(stmt.cmd1Expr));
+    const cmd2 = this.stringify(this.evaluate(stmt.cmd2Expr));
+    const pipeCmd = `${cmd1} | ${cmd2}`;
+    logger.debug(`Pipe shell: ${pipeCmd}`);
+    const result = this._runShellCommand(pipeCmd);
+    if (result.stdout) this._output(result.stdout.trimEnd());
+    if (result.stderr) this._output(result.stderr.trimEnd());
+    return result;
+  }
+
+  /** @param {IncludeStmt} stmt */
+  _execInclude(stmt) {
+    const pathVal = this.evaluate(stmt.pathExpr);
+    const filePath = path.resolve(this.stringify(pathVal));
+    logger.debug(`Including file: ${filePath}`);
+    try {
+      const source = fs.readFileSync(filePath, 'utf-8');
+      const lexer = new Lexer(source, filePath);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const program = parser.parse();
+      this._executeBlock(program.statements);
+    } catch (e) {
+      throw new RuntimeError(`Cannot include "${filePath}": ${e.message}`, stmt.line, stmt.column);
+    }
+    return NULL;
   }
 
   // -----------------------------------------------------------------------

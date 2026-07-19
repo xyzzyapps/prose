@@ -18,6 +18,7 @@ import {
   WheneverStmt, MutationStmt, ResultStmt, ExpressionStmt,
   UsingStmt, ShellStmt, ShellExpr,
   TryStmt, ReadFileStmt, WriteFileStmt, JsonParseExpr, LogicalExpr,
+  EnvVarExpr, FetchExpr, RangeForStmt, PipeShellStmt, IncludeStmt,
   LiteralExpr, VariableExpr, PropertyAccessExpr,
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from './AST.js';
@@ -169,13 +170,16 @@ export class Parser {
       () => this._parseIf(),
       () => this._parseWhile(),
       () => this._parseForEvery(),
+      () => this._parseRangeFor(),       // For every Number from X to Y:
       () => this._parseVerbDefinition(),
       () => this._parseJump(),
       () => this._parseUsing(),          // Using [verb] parse { ... }
       () => this._parseShellStmt(),      // Execute the shell command "..."
+      () => this._parsePipeShell(),      // Run "..." and pipe to "..."
       () => this._parseExecute(),
       () => this._parseReadFile(),       // Read the file "..." into X.
       () => this._parseWriteFile(),      // Write ... to the file "...".
+      () => this._parseInclude(),        // Include "file.prose".
       () => this._parseVariableDecl(),
       () => this._parseDictionarySet(),
       () => this._parseQuery(),
@@ -264,30 +268,29 @@ export class Parser {
   parseInlineStatement() {
     const savedPos = this.pos;
 
-    // First, try parsing as a pure expression (handles dictionary access,
-    // variable references, property access, etc.)
+    // Try verb call first (e.g., "uppercase \"hello\"")
+    const stmt = this._parseVerbCall();
+    if (stmt) return stmt;
+
+    this.pos = savedPos;
+
+    // Try print and assignment
+    const printStmt = this._parsePrint();
+    if (printStmt) return printStmt;
+
+    this.pos = savedPos;
+    const assignStmt = this._parseAssignment();
+    if (assignStmt) return assignStmt;
+
+    // Try parsing as a pure expression (handles dictionary access, etc.)
+    this.pos = savedPos;
     try {
       const expr = this.parseExpression();
       if (expr) {
         return new ExpressionStmt(expr, expr.line, expr.column);
       }
     } catch (e) {
-      // Not an expression, fall through to statement patterns
-    }
-    this.pos = savedPos;
-
-    // Try inline statement patterns: verb call, print, assignment
-    const stmt = this._parseVerbCall() ||
-                 this._parsePrint() ||
-                 this._parseAssignment();
-
-    if (stmt) return stmt;
-
-    // Fallback: try expression again (double-parse for edge cases)
-    this.pos = savedPos;
-    const expr = this.parseExpression();
-    if (expr) {
-      return new ExpressionStmt(expr, expr.line, expr.column);
+      // Not an expression, fall through
     }
 
     throw new SyntaxError(
@@ -374,6 +377,37 @@ export class Parser {
     this._expect(TokenType.PERIOD);
 
     return new ShellStmt(cmdExpr, execTok.line, execTok.column);
+  }
+
+  /** `Run the shell command "a" and pipe to "b".` */
+  _parsePipeShell() {
+    this._skipNoise();
+    const runTok = this._match(TokenType.WORD, 'run');
+    if (!runTok) return null;
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    this._match(TokenType.WORD, 'shell');
+    this._expect(TokenType.WORD, 'command');
+    const cmd1 = this._parsePrimary(); // Don't use parseExpression (avoids "and" as logical op)
+    this._skipNoise();
+    this._expect(TokenType.WORD, 'and');
+    this._skipNoise();
+    this._match(TokenType.WORD, 'pipe');
+    this._skipNoise();
+    this._match(TokenType.WORD, 'to');
+    const cmd2 = this._parsePrimary();
+    this._expect(TokenType.PERIOD);
+    return new PipeShellStmt(cmd1, cmd2, runTok.line, runTok.column);
+  }
+
+  /** `Include "file.prose".` */
+  _parseInclude() {
+    this._skipNoise();
+    const inclTok = this._match(TokenType.WORD, 'include');
+    if (!inclTok) return null;
+    const pathExpr = this.parseExpression();
+    this._expect(TokenType.PERIOD);
+    return new IncludeStmt(pathExpr, inclTok.line, inclTok.column);
   }
 
   /** `Try: ... Catch: ...` or `Try: ... Catch the error: ...` */
@@ -630,6 +664,31 @@ export class Parser {
     );
   }
 
+  /** `For every Number from X to Y:` */
+  _parseRangeFor() {
+    this._skipNoise();
+    const forTok = this._match(TokenType.WORD, 'for');
+    if (!forTok) return null;
+    this._skipNoise();
+    if (!this._match(TokenType.WORD, 'every')) return null;
+
+    const typeTok = this._expect(TokenType.WORD); // Number
+    const savedPos = this.pos;
+    this._skipNoise();
+    if (!this._match(TokenType.WORD, 'from')) {
+      this.pos = savedPos;
+      return null; // Not a range for, might be a regular "For every X in Y"
+    }
+    const fromExpr = this.parseExpression();
+    this._skipNoise();
+    this._expect(TokenType.WORD, 'to');
+    const toExpr = this.parseExpression();
+    const body = this.consumeBlock();
+
+    // Use a variable name like "index" or the type name
+    return new RangeForStmt('_index', fromExpr, toExpr, body, forTok.line, forTok.column);
+  }
+
   /** `To verbName param1 param2 ...: [block]` */
   _parseVerbDefinition() {
     this._skipNoise();
@@ -684,12 +743,13 @@ export class Parser {
 
     this._advance(); // consume verb name
 
-    // Read arguments (everything up to PERIOD)
+    // Read arguments (everything up to PERIOD, COLON, NEWLINE, or RPAREN)
     const args = [];
     while (this.pos < this.tokens.length &&
            this._current().type !== TokenType.PERIOD &&
            this._current().type !== TokenType.COLON &&
-           this._current().type !== TokenType.NEWLINE) {
+           this._current().type !== TokenType.NEWLINE &&
+           this._current().type !== TokenType.RPAREN) {
       // Skip noise words
       if (this._current().type === TokenType.WORD &&
           NOISE.has(this._current().value.toLowerCase())) {
@@ -710,7 +770,13 @@ export class Parser {
       }
     }
 
-    this._expect(TokenType.PERIOD);
+    // Accept PERIOD (for standalone calls) or RPAREN (inside side-notes)
+    // Don't consume RPAREN - let _parseParenExpr handle it
+    if (this._check(TokenType.RPAREN)) {
+      // Inside parenthesized expression, don't consume the RPAREN
+    } else {
+      this._expect(TokenType.PERIOD);
+    }
 
     return new VerbCall(
       verbTok.value, args,
@@ -1124,6 +1190,12 @@ export class Parser {
       return new LiteralExpr('braceblock', tok.value, tok.line, tok.column);
     }
 
+    // INTERPOLATED string (contains ${var})
+    if (tok.type === TokenType.INTERPOLATED) {
+      this._advance();
+      return new LiteralExpr('interpolated', tok.value, tok.line, tok.column);
+    }
+
     // Parenthesized expression (side-note)
     if (tok.type === TokenType.LPAREN) {
       return this._parseParenExpr();
@@ -1233,6 +1305,42 @@ export class Parser {
           const sourceExpr = this.parseExpression();
           return new JsonParseExpr(sourceExpr, tok.line, tok.column);
         }
+      }
+      this.pos = savedPos;
+    }
+
+    // Environment variable: "the environment variable [expr]"
+    if (tok.type === TokenType.WORD &&
+        (tok.value.toLowerCase() === 'the' || tok.value.toLowerCase() === 'environment')) {
+      const savedPos = this.pos;
+      if (tok.value.toLowerCase() === 'the') {
+        this._advance();
+        while (this._current().type === TokenType.WORD &&
+               (this._current().value.toLowerCase() === 'a' ||
+                this._current().value.toLowerCase() === 'an' ||
+                this._current().value.toLowerCase() === 'the')) {
+          this._advance();
+        }
+      }
+      if (this._check(TokenType.WORD, 'environment')) {
+        this._advance();
+        this._skipNoise();
+        this._match(TokenType.WORD, 'variable');
+        const nameExpr = this.parseExpression();
+        return new EnvVarExpr(nameExpr, tok.line, tok.column);
+      }
+      // Check for "fetched content of the url"
+      if (this._check(TokenType.WORD, 'fetched')) {
+        this._advance();
+        this._skipNoise();
+        this._match(TokenType.WORD, 'content');
+        this._skipNoise();
+        this._expect(TokenType.WORD, 'of');
+        this._skipNoise();
+        this._match(TokenType.WORD, 'the');
+        this._match(TokenType.WORD, 'url');
+        const urlExpr = this.parseExpression();
+        return new FetchExpr(urlExpr, tok.line, tok.column);
       }
       this.pos = savedPos;
     }

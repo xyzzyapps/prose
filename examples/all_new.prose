@@ -1,0 +1,33 @@
+# All New Features Demo
+
+# --- String Interpolation ---
+A Text named Name exists.
+Name is "Alice".
+A Number named Age exists.
+Age is 30.
+Print "Hello, ${Name}! You are ${Age} years old".
+
+# --- Environment Variables ---
+A Text named Home exists.
+Home is the environment variable "USERPROFILE".
+Print "User home: " followed by Home.
+
+# --- String Builtins (via side-note calls) ---
+A Text named Shout exists.
+Shout is (uppercase "hello world").
+Print Shout.
+
+A Text named Quiet exists.
+Quiet is (lowercase "HELLO WORLD").
+Print Quiet.
+
+# --- For-Range Loop ---
+Print "Counting 1 to 5:".
+For every Number from 1 to 5:
+    Print _index.
+
+# --- Pipe Shell ---
+Run the shell command "echo hello" and pipe to "findstr hello".
+
+# --- Include ---
+Include "examples/hello.prose".

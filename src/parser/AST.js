@@ -581,3 +581,56 @@ export class LogicalExpr extends Expr {
   }
   nodeType() { return 'LogicalExpr'; }
 }
+
+// ---------------------------------------------------------------------------
+// New: Env var, HTTP fetch, Range for, Pipe shell, Include
+// ---------------------------------------------------------------------------
+
+/** `the environment variable "HOME"` */
+export class EnvVarExpr extends Expr {
+  constructor(nameExpr, line, column) {
+    super(line, column);
+    this.nameExpr = nameExpr;
+  }
+  nodeType() { return 'EnvVarExpr'; }
+}
+
+/** `the fetched content of the url "..."` */
+export class FetchExpr extends Expr {
+  constructor(urlExpr, line, column) {
+    super(line, column);
+    this.urlExpr = urlExpr;
+  }
+  nodeType() { return 'FetchExpr'; }
+}
+
+/** `For every Number from 1 to 10:` */
+export class RangeForStmt extends Stmt {
+  constructor(iteratorVar, fromExpr, toExpr, body, line, column) {
+    super(line, column);
+    this.iteratorVar = iteratorVar;
+    this.fromExpr = fromExpr;
+    this.toExpr = toExpr;
+    this.body = body;
+  }
+  nodeType() { return 'RangeForStmt'; }
+}
+
+/** `Run the shell command "a" and pipe to "b".` */
+export class PipeShellStmt extends Stmt {
+  constructor(cmd1Expr, cmd2Expr, line, column) {
+    super(line, column);
+    this.cmd1Expr = cmd1Expr;
+    this.cmd2Expr = cmd2Expr;
+  }
+  nodeType() { return 'PipeShellStmt'; }
+}
+
+/** `Include "file.prose".` */
+export class IncludeStmt extends Stmt {
+  constructor(pathExpr, line, column) {
+    super(line, column);
+    this.pathExpr = pathExpr;
+  }
+  nodeType() { return 'IncludeStmt'; }
+}
