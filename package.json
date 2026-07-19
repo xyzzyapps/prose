@@ -11,6 +11,7 @@
     "start": "node src/index.js",
     "repl": "node src/index.js --repl",
     "run": "node src/index.js --run",
+    "build": "bun build --compile src/index.js --outfile dist/esh.exe",
     "test": "node --test test/test_*.js"
   },
   "keywords": [

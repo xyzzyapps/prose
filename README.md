@@ -8,13 +8,22 @@ Built in JavaScript for Node.js. Modern terminal UI with gradient banner, styled
 
 ```bash
 cd esh
-npm install       # Install TUI dependencies (chalk, boxen, ora, figlet, gradient-string)
+npm install       # Install TUI dependencies
 
 # Start the interactive REPL
 node src/index.js
 
 # Run a Prose source file
 node src/index.js examples/hello.prose
+```
+
+### Build Standalone Executable (Windows .exe)
+
+Requires [Bun](https://bun.sh):
+
+```bash
+npm run build       # creates dist/esh.exe (~94 MB, zero dependencies)
+./dist/esh.exe examples/hello.prose
 ```
 
 ## Usage
