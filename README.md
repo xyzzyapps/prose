@@ -1,15 +1,14 @@
-# esh - Prose Language Shell
+# esh — Prose Language Shell v2.0
 
 A practical, declarative, and highly structured programming language that reads like standard English prose. No braces, no parentheses, no arcane punctuation -- just nouns, verbs, adjectives, and proper sentence structure.
 
-Built in JavaScript for Node.js. Zero external dependencies.
+Built in JavaScript for Node.js. Modern terminal UI with gradient banner, styled prompts, tab completion, and source-aware error display.
 
 ## Quick Start
 
 ```bash
 cd esh
-
-# No dependencies to install! Uses only Node.js built-ins.
+npm install       # Install TUI dependencies (chalk, boxen, ora, figlet, gradient-string)
 
 # Start the interactive REPL
 node src/index.js
@@ -292,19 +291,28 @@ If ConnectionStatus is "Failed":
 
 ## Shell Commands
 
-Inside the interactive REPL, use dot-commands:
+The REPL features a modern terminal UI with gradient banner, path-aware prompt, tab completion, and styled output.
 
 | Command | Description |
 |---------|-------------|
-| `.help` | Show help |
+| `.help` | Show styled help with tips |
 | `.exit`, `.quit`, `.q` | Exit the shell |
-| `.run <file>` | Run a Prose file (fresh environment) |
-| `.load <file>` | Load a Prose file (current environment) |
-| `.vars`, `.v` | List all variables |
-| `.verbs` | List all defined verbs |
-| `.reset` | Reset environment |
-| `.clear`, `.cls` | Clear screen |
-| `.color` | Toggle colored output |
+| `.run <file>`, `.r` | Run a Prose file (fresh env) |
+| `.load <file>`, `.l` | Load a Prose file (current env) |
+| `.vars`, `.v` | List all variables (boxed) |
+| `.verbs` | List all defined verbs (boxed) |
+| `.reset` | Reset environment and clear history |
+| `.clear`, `.cls` | Clear screen and re-show banner |
+| `.env` | Show session info (dir, counts) |
+| `.stats` | Show session statistics |
+| `.echo <text>` | Print text |
+| `.pwd` | Print working directory |
+
+**Key bindings:**
+- `Tab` — Complete dot-commands and Prose keywords
+- `↑/↓` — Navigate command history
+- `Ctrl+C` — Cancel multi-line input (or exit on second press)
+- `Enter` on blank line — Execute multi-line block
 
 ## Project Architecture
 
