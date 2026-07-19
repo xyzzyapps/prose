@@ -1,7 +1,7 @@
 {
   "name": "esh",
-  "version": "1.0.0",
-  "description": "Prose programming language interpreter with integrated shell",
+  "version": "2.0.0",
+  "description": "Prose programming language interpreter with modern terminal UI",
   "main": "src/index.js",
   "bin": {
     "esh": "./src/index.js"
@@ -13,6 +13,19 @@
     "run": "node src/index.js --run",
     "test": "node --test test/test_*.js"
   },
-  "keywords": ["prose", "language", "interpreter", "shell", "english-like"],
-  "license": "MIT"
+  "keywords": [
+    "prose",
+    "language",
+    "interpreter",
+    "shell",
+    "english-like"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "boxen": "^8.0.1",
+    "chalk": "^5.6.2",
+    "figlet": "^1.11.2",
+    "gradient-string": "^3.0.0",
+    "ora": "^9.4.1"
+  }
 }
