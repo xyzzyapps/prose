@@ -180,7 +180,10 @@ export class Shell {
       return;
     }
 
-    // Single line execution
+    // Single line execution - auto-append period if missing
+    if (!cleaned.trim().endsWith('.')) {
+      line = cleaned.trim() + '.';
+    }
     await this._executeCode(line + '\n');
     this._setMainPrompt();
   }
