@@ -1,0 +1,92 @@
+# Tutorial validation - all sections at once
+# ==========================================
+
+# --- 1. Variables & Math ---
+Name is "Alice".
+Age is 30.
+Print "${Name} is ${Age} years old".
+
+Total is 100 plus 50.
+Tax is Total times 20 divided by 100.
+Print "Total: ${Total}, Tax: ${Tax}".
+
+Increase Total by 1.
+Print "After increase: ${Total}".
+
+# --- 2. Conditionals ---
+Score is 85.
+If Score is greater than or equal to 90:
+    Print "Grade: A".
+Otherwise if Score is greater than or equal to 80:
+    Print "Grade: B".
+Otherwise if Score is greater than or equal to 70:
+    Print "Grade: C".
+Otherwise:
+    Print "Grade: F".
+
+If Age is greater than 18 and Score is greater than 60:
+    Print "Passed".
+
+If Score is equal to 85:
+    Print "Score is exactly 85".
+
+# --- 3. Loops ---
+Print "Counting 1 to 5:".
+For every Number from 1 to 5:
+    Print _index.
+
+Counter is 1.
+While Counter is less than 3:
+    Print "While: ${Counter}".
+    Increase Counter by 1.
+
+# --- 4. Lists (Map, Filter, Sum) ---
+A List Nums exists.
+Nums contains 10, 20, 30, 40, and 50.
+
+To double N:
+    Result is N times 2.
+
+Doubled is every item in Nums transformed by double.
+Print "Doubled: " followed by Doubled.
+
+Big is every item in Nums where _item is greater than 25.
+Print "Big (>25): " followed by Big.
+
+SumResult is the sum of Nums.
+Print "Sum: " followed by SumResult.
+
+# --- 5. Strings ---
+Shout is (uppercase "hello").
+Print "Uppercase: " followed by Shout.
+
+Quiet is (lowercase "HELLO").
+Print "Lowercase: " followed by Quiet.
+
+Fixed is (replace "a-b-c" "-" "/").
+Print "Replaced: " followed by Fixed.
+
+# --- 6. File I/O ---
+Write "hello tutorial" to the file "test_tutorial.txt".
+A Text Content exists.
+Read the file "test_tutorial.txt" into Content.
+Print "File content: " followed by Content.
+Delete the file "test_tutorial.txt".
+
+# --- 7. Shell commands ---
+A Text Listing exists.
+Listing is the output of the shell command "echo shell-works".
+Print "Shell: " followed by Listing.
+
+# --- 8. Env vars ---
+A Text Home exists.
+Home is the environment variable "USERPROFILE".
+Print "Home exists: " followed by "yes".
+
+# --- 9. Try/Catch ---
+Try:
+    Execute the shell command "nonexistent-command-xyz".
+Catch the error into Err:
+    Print "Caught error successfully".
+
+Print "All sections passed!".

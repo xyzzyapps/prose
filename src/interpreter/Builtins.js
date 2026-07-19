@@ -66,15 +66,15 @@ export function registerBuiltins(env, interpreter) {
     }
   });
 
-  // String manipulation builtins
+  // String manipulation builtins (simplified params)
   env.defineVerb('split', {
     name: 'split',
-    params: ['text', 'by', 'delimiter'],
+    params: ['text', 'delimiter'],
     closure: env,
     native: true,
     execute(args, env, interp) {
       const text = interp.stringify(args[0]);
-      const delim = interp.stringify(args[2]);
+      const delim = interp.stringify(args[1]);
       const parts = text.split(delim);
       const list = new ListValue();
       for (const p of parts) list.push(new TextValue(p));
@@ -84,12 +84,12 @@ export function registerBuiltins(env, interpreter) {
 
   env.defineVerb('join', {
     name: 'join',
-    params: ['list', 'with', 'delimiter'],
+    params: ['list', 'delimiter'],
     closure: env,
     native: true,
     execute(args, env, interp) {
       const list = args[0];
-      const delim = interp.stringify(args[2]);
+      const delim = interp.stringify(args[1]);
       if (!(list instanceof ListValue)) throw new RuntimeError('join requires a List');
       const parts = list.items.map(i => interp.stringify(i));
       return new TextValue(parts.join(delim));
@@ -98,13 +98,13 @@ export function registerBuiltins(env, interpreter) {
 
   env.defineVerb('replace', {
     name: 'replace',
-    params: ['in', 'text', 'replace', 'old', 'with', 'new'],
+    params: ['text', 'old', 'new'],
     closure: env,
     native: true,
     execute(args, env, interp) {
-      const text = interp.stringify(args[1]);
-      const oldStr = interp.stringify(args[3]);
-      const newStr = interp.stringify(args[5]);
+      const text = interp.stringify(args[0]);
+      const oldStr = interp.stringify(args[1]);
+      const newStr = interp.stringify(args[2]);
       return new TextValue(text.split(oldStr).join(newStr));
     }
   });
