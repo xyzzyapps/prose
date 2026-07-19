@@ -2,12 +2,11 @@
 
 A practical, declarative, and highly structured programming language that reads like standard English prose. No braces, no parentheses, no arcane punctuation -- just nouns, verbs, adjectives, and proper sentence structure.
 
-Built in JavaScript for Node.js.
+Built in JavaScript for Node.js. Zero external dependencies.
 
 ## Quick Start
 
 ```bash
-# Clone and enter the project
 cd esh
 
 # No dependencies to install! Uses only Node.js built-ins.
@@ -15,7 +14,7 @@ cd esh
 # Start the interactive REPL
 node src/index.js
 
-# Or make it executable and run directly
+# Run a Prose source file
 node src/index.js examples/hello.prose
 ```
 
@@ -39,6 +38,14 @@ Age is 30.
 
 A Text named Name exists.
 Name is "Alice".
+```
+
+### String Interpolation
+
+Embed variables directly inside double-quoted strings with `${var}`:
+
+```
+Print "Hello, ${Name}! You are ${Age} years old".
 ```
 
 ### Entities (Objects)
@@ -79,13 +86,39 @@ Staff contains Alice, Bob, and Charlie.
 Find every User in Staff whose role is "Administrator".
 ```
 
-### Conditionals
+### Arithmetic Expressions
 
 ```
-If Alice's age is greater than 21:
-    Print "Access granted."
+A Number named X exists.
+X is 5 plus 3.          # 8
+X is 10 minus 4.        # 6
+X is 3 times 7.         # 21
+X is 20 divided by 4.   # 5
+```
+
+### Conditionals and Comparisons
+
+```
+If Score is greater than or equal to 80:
+    Print "Grade: A".
+Otherwise if Score is greater than or equal to 70:
+    Print "Grade: B".
+Otherwise if Score is greater than or equal to 60:
+    Print "Grade: C".
 Otherwise:
-    Print "Access denied."
+    Print "Grade: F".
+```
+
+Supported comparisons: `is greater than`, `is less than`, `is equal to`, `is not equal to`, `is greater than or equal to`, `is less than or equal to`.
+
+### Logic Operators
+
+```
+If A is greater than 5 and B is less than 30:
+    Print "Both conditions true".
+
+If A is less than 5 or B is greater than 15:
+    Print "At least one condition true".
 ```
 
 ### Loops
@@ -97,6 +130,13 @@ Counter is 1.
 While Counter is less than 5:
     Print "Count: " followed by Counter.
     Increase Counter by 1.
+```
+
+### For-Range Loops
+
+```
+For every Number from 1 to 5:
+    Print _index.
 ```
 
 ### Verbs (Functions)
@@ -135,8 +175,7 @@ Execute the text inside DynamicAction.
 
 ### DSL Embedding (Using Blocks)
 
-Embed custom domain-specific languages inside `{ }` blocks.
-The raw text is passed to a handler verb for custom parsing.
+Embed custom domain-specific languages inside `{ }` blocks:
 
 ```
 To ProcessRules a Source:
@@ -150,8 +189,6 @@ Using ProcessRules parse {
 
 ### OS Shell Commands
 
-Execute OS commands and capture their output.
-
 ```
 # Execute and print output
 Execute the shell command "dir".
@@ -159,7 +196,74 @@ Execute the shell command "dir".
 # Capture output into a variable
 A Text named Listing exists.
 Listing is the output of the shell command "ls -la".
-Print Listing.
+
+# Pipe between commands
+Run the shell command "cat log.txt" and pipe to "grep ERROR".
+```
+
+### Environment Variables
+
+```
+A Text named Home exists.
+Home is the environment variable "HOME".
+Print "User home: " followed by Home.
+```
+
+### HTTP Requests
+
+```
+A Text named Page exists.
+Page is the fetched content of the url "https://api.example.com/data".
+```
+
+### String Manipulation
+
+Built-in verbs for text processing:
+
+```
+Shout is (uppercase "hello").       # "HELLO"
+Quiet is (lowercase "HELLO").       # "hello"
+Replaced is (replace in "abc" replace "b" with "x").  # "axc"
+
+# Also available: split, join
+```
+
+### File I/O
+
+```
+Write "Hello, file!" to the file "output.txt".
+
+A Text named Content exists.
+Read the file "output.txt" into Content.
+```
+
+### JSON Parsing
+
+```
+A Text named Raw exists.
+Raw is "{\"name\": \"Alice\", \"age\": 30}".
+
+A Dictionary named Data exists.
+Data is the parsed JSON of Raw.
+
+Print the value for "name" inside Data.
+```
+
+### Try/Catch Error Handling
+
+```
+Try:
+    Execute the shell command "nonexistent-command".
+Catch the error into ErrMsg:
+    Print "Caught error: " followed by ErrMsg.
+
+Print "Program continues after error handling".
+```
+
+### Module System (Include)
+
+```
+Include "helpers.prose".
 ```
 
 ### Goto and Labels
@@ -187,9 +291,6 @@ Inside the interactive REPL, use dot-commands:
 | `.reset` | Reset environment |
 | `.clear`, `.cls` | Clear screen |
 | `.color` | Toggle colored output |
-
-Multi-line blocks: end a line with `:` and the REPL enters continuation mode.
-Press Enter on a blank line to execute the block.
 
 ## Project Architecture
 
@@ -220,6 +321,7 @@ examples/
   dsl_shell.prose     DSL blocks and shell commands
   minimal_dsl.prose   Minimal DSL example
   new_features.prose  Arithmetic, comparisons, logic, else-if, file I/O, JSON, try/catch
+  all_new.prose       String interp, env vars, range-for, pipe, fetch, include
 ```
 
 ## License

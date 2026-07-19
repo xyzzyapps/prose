@@ -272,6 +272,129 @@ the output of the shell command [commandExpr]
 
 Expression form that captures the stdout of a shell command as a Text value. Stderr is not captured in expression form.
 
+### 4.20 Arithmetic Expressions
+
+```
+X is 5 plus 3.
+X is 10 minus 4.
+X is 3 times 7.
+X is 20 divided by 4.
+```
+
+Infix arithmetic operators with equal precedence.
+
+### 4.21 Logic Operators
+
+```
+If X is greater than 5 and Y is less than 10:
+    ...
+
+If A or B:
+    ...
+```
+
+Short-circuit evaluation: `and` stops at first false, `or` stops at first true.
+
+### 4.22 Else-If Chains
+
+```
+If condition1:
+    ...
+Otherwise if condition2:
+    ...
+Otherwise if condition3:
+    ...
+Otherwise:
+    ...
+```
+
+### 4.23 For-Range Loops
+
+```
+For every Number from 1 to 10:
+    Print _index.
+```
+
+Iterates from the `from` value to the `to` value (inclusive). The loop variable `_index` holds the current value.
+
+### 4.24 File I/O
+
+```
+Read the file [path] into [var].
+Write [expr] to the file [path].
+```
+
+Synchronous file read/write using UTF-8 encoding.
+
+### 4.25 JSON Parsing
+
+```
+the parsed JSON of [expr]
+```
+
+Parses a JSON string into nested Dictionary/List values. Returns DictionaryValue or ListValue.
+
+### 4.26 Try/Catch
+
+```
+Try:
+    ...
+Catch the error into ErrVar:
+    ...
+```
+
+Executes the try block. If any ProseError is thrown, executes the catch block. The error message is bound to ErrVar (optional).
+
+### 4.27 Pipe Shell Commands
+
+```
+Run the shell command [cmd1] and pipe to [cmd2].
+```
+
+Runs `cmd1 | cmd2` in the OS shell. Both stdout and stderr are printed.
+
+### 4.28 Environment Variables
+
+```
+the environment variable [name]
+```
+
+Returns the value of an OS environment variable as Text. Returns empty string if not set.
+
+### 4.29 HTTP Fetch
+
+```
+the fetched content of the url [url]
+```
+
+Performs an HTTP GET request (via Node subprocess) and returns the response body as Text. Has a 15-second timeout.
+
+### 4.30 Module System (Include)
+
+```
+Include [path].
+```
+
+Loads and executes another Prose file in the current scope. Variables and verbs defined in the included file persist.
+
+### 4.31 String Interpolation
+
+```
+"Hello, ${Name}!"
+```
+
+Inside double-quoted strings, `${variable}` is replaced with the variable's string value at runtime. Use `\$` for a literal dollar sign.
+
+### 4.32 String Built-in Verbs
+
+| Verb | Parameters | Description |
+|------|-----------|-------------|
+| `uppercase` | text | Returns uppercase text |
+| `lowercase` | text | Returns lowercase text |
+| `split` | text, by, delimiter | Splits text into a List |
+| `join` | list, with, delimiter | Joins list items with delimiter |
+| `replace` | in, text, replace, old, with, new | Replaces all occurrences |
+
 ---
 
 ## 5. Expressions
@@ -299,10 +422,18 @@ Expression form that captures the stdout of a shell command as a Text value. Std
 | Operator | Prose Syntax | Description |
 |----------|-------------|-------------|
 | Concatenation | `X followed by Y` | String concatenation |
+| Addition | `X plus Y` | Numeric addition |
+| Subtraction | `X minus Y` | Numeric subtraction |
+| Multiplication | `X times Y` | Numeric multiplication |
+| Division | `X divided by Y` | Numeric division |
 | Greater than | `X is greater than Y` | Numeric comparison |
 | Less than | `X is less than Y` | Numeric comparison |
-| Equal to | `X is equal to Y` | String equality (after stringify) |
+| Greater or equal | `X is greater than or equal to Y` | Numeric comparison |
+| Less or equal | `X is less than or equal to Y` | Numeric comparison |
+| Equal to | `X is equal to Y` | String equality |
 | Not equal to | `X is not equal to Y` | String inequality |
+| Logical AND | `X and Y` | Short-circuit logical and |
+| Logical OR | `X or Y` | Short-circuit logical or |
 
 ### 5.5 Side-Notes (Command Substitution)
 
@@ -427,11 +558,11 @@ The parser includes error recovery: if a statement cannot be parsed, it skips to
 ## 9. Limitations
 
 1. **No user-defined types/blueprints**: Entity blueprints are nominal only
-2. **No module/import system**: All code runs in a single file
-3. **Limited arithmetic**: Only increase/lower/set via mutation statements
-4. **No closures in verbs**: Verbs capture their definition environment as closure
-5. **Goto within blocks**: Jump only to top-level labels
-6. **Single-threaded**: No concurrency support
+2. **No first-class boolean type**: Truthiness is implicit (non-zero number, non-empty text)
+3. **No closures in verbs**: Verbs capture their definition environment as closure
+4. **Goto within blocks**: Jump only to top-level labels
+5. **Single-threaded**: No concurrency support
+6. **HTTP fetch via subprocess**: Slower than native HTTP, requires Node.js on PATH
 
 ---
 
