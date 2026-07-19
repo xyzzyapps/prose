@@ -128,7 +128,9 @@ export class Shell {
   // -----------------------------------------------------------------------
 
   async _handleLine(line) {
-    const trimmed = line.trim();
+    // Strip BOM and other zero-width characters that may come from pipes
+    const cleaned = line.replace(/^\uFEFF/, '').replace(/^\u200B/, '');
+    const trimmed = cleaned.trim();
 
     // In multi-line mode, collect lines
     if (this._multilineBuffer !== null) {
