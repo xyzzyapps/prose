@@ -1,0 +1,16 @@
+# Minimal test for DSL + Shell
+
+To TestVerb a Param:
+    Print "Verb called with: " followed by Param.
+
+Using TestVerb parse {
+    hello world
+    from dsl
+}
+
+Execute the shell command "echo SH_TEST".
+
+A Text named X exists.
+X is the output of the shell command "echo captured".
+
+Print "X = " followed by X.

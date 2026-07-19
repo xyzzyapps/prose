@@ -1,0 +1,12 @@
+# Hello World - Simple Prose Example
+# Demonstrates basic variable declaration, assignment, and printing.
+
+A Text named Greeting exists.
+Greeting is "Hello, World!".
+
+Print Greeting.
+
+A Number named Answer exists.
+Answer is 42.
+
+Print "The answer is " followed by Answer.

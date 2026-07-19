@@ -1,0 +1,33 @@
+# DSL and Shell Features Demo
+# Demonstrates Using { } blocks and shell command execution.
+
+# --- DSL Block Example: Simple Make-like rule parser ---
+
+To ProcessRules a Source:
+    Print "Processing DSL rules:" followed by Source.
+    Print "Rule count: 3 items processed".
+    Print "DSL parsed successfully".
+
+# The DSL content between { } is passed as raw text to ProcessRules.
+Using ProcessRules parse {
+    build: main.o util.o
+        gcc -o build main.o util.o
+
+    main.o: main.c
+        gcc -c main.c
+}
+
+# --- Shell Command Execution ---
+
+# Execute a shell command (output goes to stdout).
+Execute the shell command "echo Hello from the OS shell!".
+
+# Execute another command.
+Execute the shell command "node --version".
+
+# --- Capturing Shell Output ---
+
+A Text named SystemInfo exists.
+SystemInfo is the output of the shell command "echo Prose-OS-Integration".
+
+Print "Captured output:" followed by SystemInfo.

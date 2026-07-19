@@ -1,0 +1,495 @@
+/**
+ * parser/AST.js - Abstract Syntax Tree node definitions for Prose.
+ *
+ * Every AST node extends Stmt (statement) or Expr (expression).
+ * Each node carries a line/column for error reporting.
+ */
+
+// ---------------------------------------------------------------------------
+// Base classes
+// ---------------------------------------------------------------------------
+
+export class ASTNode {
+  constructor(line = 0, column = 0) {
+    this.line = line;
+    this.column = column;
+  }
+}
+
+export class Stmt extends ASTNode {
+  /** @returns {string} */
+  nodeType() { return 'Stmt'; }
+}
+
+export class Expr extends ASTNode {
+  /** @returns {string} */
+  nodeType() { return 'Expr'; }
+}
+
+// ---------------------------------------------------------------------------
+// Program (root node)
+// ---------------------------------------------------------------------------
+
+export class Program extends ASTNode {
+  /**
+   * @param {Stmt[]} statements
+   */
+  constructor(statements) {
+    super();
+    this.statements = statements;
+  }
+  nodeType() { return 'Program'; }
+}
+
+// ---------------------------------------------------------------------------
+// Statements
+// ---------------------------------------------------------------------------
+
+/** `A Number named X exists.` or `A User named Alice exists.` */
+export class VariableDeclaration extends Stmt {
+  /**
+   * @param {string} typeName   e.g. "Number", "Text", "User"
+   * @param {string} varName    e.g. "X", "Alice"
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(typeName, varName, line, column) {
+    super(line, column);
+    this.typeName = typeName;
+    this.varName = varName;
+  }
+  nodeType() { return 'VariableDeclaration'; }
+}
+
+/** `X is 30.` or `Alice's age is 25.` */
+export class Assignment extends Stmt {
+  /**
+   * @param {string|null} entity   entity name for property assign, or null
+   * @param {string} target         variable or property name
+   * @param {Expr} value
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(entity, target, value, line, column) {
+    super(line, column);
+    this.entity = entity;
+    this.target = target;
+    this.value = value;
+  }
+  nodeType() { return 'Assignment'; }
+}
+
+/** `Print expression.` */
+export class PrintStmt extends Stmt {
+  /**
+   * @param {Expr} expression
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(expression, line, column) {
+    super(line, column);
+    this.expression = expression;
+  }
+  nodeType() { return 'PrintStmt'; }
+}
+
+/** `If condition: ... Otherwise: ...` */
+export class IfStmt extends Stmt {
+  /**
+   * @param {Expr} condition
+   * @param {Stmt[]} thenBlock
+   * @param {Stmt[]} elseBlock
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(condition, thenBlock, elseBlock, line, column) {
+    super(line, column);
+    this.condition = condition;
+    this.thenBlock = thenBlock;   // Stmt[]
+    this.elseBlock = elseBlock;   // Stmt[] (may be empty [])
+  }
+  nodeType() { return 'IfStmt'; }
+}
+
+/** `While condition: ...` */
+export class WhileStmt extends Stmt {
+  /**
+   * @param {Expr} condition
+   * @param {Stmt[]} body
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(condition, body, line, column) {
+    super(line, column);
+    this.condition = condition;
+    this.body = body;
+  }
+  nodeType() { return 'WhileStmt'; }
+}
+
+/** `For every X in Y: ...` */
+export class ForEveryStmt extends Stmt {
+  /**
+   * @param {string} iteratorVar
+   * @param {string} collectionName
+   * @param {Stmt[]} body
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(iteratorVar, collectionName, body, line, column) {
+    super(line, column);
+    this.iteratorVar = iteratorVar;
+    this.collectionName = collectionName;
+    this.body = body;
+  }
+  nodeType() { return 'ForEveryStmt'; }
+}
+
+/** `To verbName params: ...` */
+export class VerbDefinition extends Stmt {
+  /**
+   * @param {string} name       verb name, e.g. "Greet"
+   * @param {string[]} params   parameter names
+   * @param {Stmt[]} body
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(name, params, body, line, column) {
+    super(line, column);
+    this.name = name;
+    this.params = params;
+    this.body = body;
+  }
+  nodeType() { return 'VerbDefinition'; }
+}
+
+/** `VerbName args.` */
+export class VerbCall extends Stmt {
+  /**
+   * @param {string} verbName
+   * @param {Expr[]} args
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(verbName, args, line, column) {
+    super(line, column);
+    this.verbName = verbName;
+    this.args = args;
+  }
+  nodeType() { return 'VerbCall'; }
+}
+
+/** `Label "name".` */
+export class LabelStmt extends Stmt {
+  /**
+   * @param {string} name
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(name, line, column) {
+    super(line, column);
+    this.name = name;
+  }
+  nodeType() { return 'LabelStmt'; }
+}
+
+/** `Jump to the label "name".` */
+export class JumpStmt extends Stmt {
+  /**
+   * @param {string} labelName
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(labelName, line, column) {
+    super(line, column);
+    this.labelName = labelName;
+  }
+  nodeType() { return 'JumpStmt'; }
+}
+
+/** `Execute the text inside variable.` */
+export class ExecuteStmt extends Stmt {
+  /**
+   * @param {string} varName
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(varName, line, column) {
+    super(line, column);
+    this.varName = varName;
+  }
+  nodeType() { return 'ExecuteStmt'; }
+}
+
+/** `Inside dictName, "key" maps to value.` */
+export class DictionarySetStmt extends Stmt {
+  /**
+   * @param {string} dictName
+   * @param {Expr} key
+   * @param {Expr} value
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(dictName, key, value, line, column) {
+    super(line, column);
+    this.dictName = dictName;
+    this.key = key;
+    this.value = value;
+  }
+  nodeType() { return 'DictionarySetStmt'; }
+}
+
+/** `ListName contains item1, item2, and item3.` */
+export class ListAddStmt extends Stmt {
+  /**
+   * @param {string} listName
+   * @param {Expr[]} items
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(listName, items, line, column) {
+    super(line, column);
+    this.listName = listName;
+    this.items = items;
+  }
+  nodeType() { return 'ListAddStmt'; }
+}
+
+/** `Find every Type in collection whose property is value.` */
+export class QueryStmt extends Stmt {
+  /**
+   * @param {string} typeName    e.g. "User"
+   * @param {string} collection  e.g. "Staff"
+   * @param {string} property    e.g. "role"
+   * @param {Expr} value         e.g. "Administrator"
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(typeName, collection, property, value, line, column) {
+    super(line, column);
+    this.typeName = typeName;
+    this.collection = collection;
+    this.property = property;
+    this.value = value;
+  }
+  nodeType() { return 'QueryStmt'; }
+}
+
+/** `Whenever entity's property changes: ...` */
+export class WheneverStmt extends Stmt {
+  /**
+   * @param {string} entityName
+   * @param {string|null} propertyName  null if watching all properties
+   * @param {Stmt[]} body
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(entityName, propertyName, body, line, column) {
+    super(line, column);
+    this.entityName = entityName;
+    this.propertyName = propertyName;
+    this.body = body;
+  }
+  nodeType() { return 'WheneverStmt'; }
+}
+
+/** `Increase/Lower/Set variable by/to value.` - arithmetic mutation */
+export class MutationStmt extends Stmt {
+  /**
+   * @param {string} operation   'increase', 'decrease'/'lower', 'set'
+   * @param {string|null} entity  entity name for property, or null
+   * @param {string} target       variable or property name
+   * @param {Expr} value
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(operation, entity, target, value, line, column) {
+    super(line, column);
+    this.operation = operation;
+    this.entity = entity;
+    this.target = target;
+    this.value = value;
+  }
+  nodeType() { return 'MutationStmt'; }
+}
+
+/** `Result is value.` - return from a verb */
+export class ResultStmt extends Stmt {
+  /**
+   * @param {Expr} value
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(value, line, column) {
+    super(line, column);
+    this.value = value;
+  }
+  nodeType() { return 'ResultStmt'; }
+}
+
+/** Inline expression evaluated as a statement (for side-effects in parenthesized expressions) */
+export class ExpressionStmt extends Stmt {
+  /**
+   * @param {Expr} expression
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(expression, line, column) {
+    super(line, column);
+    this.expression = expression;
+  }
+  nodeType() { return 'ExpressionStmt'; }
+}
+
+/**
+ * `Using [verbName] parse { dslContent }` or `Using [verbName] process { ... }`
+ * Passes the raw DSL text block to a verb for custom parsing.
+ */
+export class UsingStmt extends Stmt {
+  /**
+   * @param {string} verbName    handler verb name
+   * @param {string} dslText     raw text content between { }
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(verbName, dslText, line, column) {
+    super(line, column);
+    this.verbName = verbName;
+    this.dslText = dslText;
+  }
+  nodeType() { return 'UsingStmt'; }
+}
+
+/**
+ * `Execute the shell command "cmd".` - run an OS command.
+ */
+export class ShellStmt extends Stmt {
+  /**
+   * @param {Expr} commandExpr   expression evaluating to the command string
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(commandExpr, line, column) {
+    super(line, column);
+    this.commandExpr = commandExpr;
+  }
+  nodeType() { return 'ShellStmt'; }
+}
+
+/**
+ * `the output of the shell command "cmd"` - captures stdout of a command.
+ */
+export class ShellExpr extends Expr {
+  /**
+   * @param {Expr} commandExpr   expression evaluating to the command string
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(commandExpr, line, column) {
+    super(line, column);
+    this.commandExpr = commandExpr;
+  }
+  nodeType() { return 'ShellExpr'; }
+}
+
+// ---------------------------------------------------------------------------
+// Expressions
+// ---------------------------------------------------------------------------
+
+/** Literal value: number, text, heredoc */
+export class LiteralExpr extends Expr {
+  /**
+   * @param {string} valueType  'number', 'text', 'heredoc'
+   * @param {string} rawValue
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(valueType, rawValue, line, column) {
+    super(line, column);
+    this.valueType = valueType;
+    this.rawValue = rawValue;
+  }
+  nodeType() { return 'LiteralExpr'; }
+}
+
+/** Variable reference */
+export class VariableExpr extends Expr {
+  /**
+   * @param {string} name
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(name, line, column) {
+    super(line, column);
+    this.name = name;
+  }
+  nodeType() { return 'VariableExpr'; }
+}
+
+/** Entity property access: `Alice's age` */
+export class PropertyAccessExpr extends Expr {
+  /**
+   * @param {string} entity
+   * @param {string} property
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(entity, property, line, column) {
+    super(line, column);
+    this.entity = entity;
+    this.property = property;
+  }
+  nodeType() { return 'PropertyAccessExpr'; }
+}
+
+/** Binary operation: `X followed by Y`, `X is greater than Y`, etc. */
+export class BinaryOpExpr extends Expr {
+  /**
+   * @param {Expr} left
+   * @param {string} op   'followed_by', 'greater_than', 'less_than',
+   *                       'equal_to', 'not_equal_to', 'greater_equal',
+   *                       'less_equal', 'plus', 'minus', 'times', 'divided_by'
+   * @param {Expr} right
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(left, op, right, line, column) {
+    super(line, column);
+    this.left = left;
+    this.op = op;
+    this.right = right;
+  }
+  nodeType() { return 'BinaryOpExpr'; }
+}
+
+/** Inline verb call used as an expression: `(Greet Target)` */
+export class CallExpr extends Expr {
+  /**
+   * @param {string} verbName
+   * @param {Expr[]} args
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(verbName, args, line, column) {
+    super(line, column);
+    this.verbName = verbName;
+    this.args = args;
+  }
+  nodeType() { return 'CallExpr'; }
+}
+
+/** Dictionary value lookup: `the value for "key" inside dict` */
+export class DictionaryAccessExpr extends Expr {
+  /**
+   * @param {string} dictName
+   * @param {Expr} key
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(dictName, key, line, column) {
+    super(line, column);
+    this.dictName = dictName;
+    this.key = key;
+  }
+  nodeType() { return 'DictionaryAccessExpr'; }
+}

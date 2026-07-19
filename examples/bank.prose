@@ -1,0 +1,30 @@
+# Bank Transaction Log - Complete Prose Program
+# Demonstrates dictionaries, entities, mutation, whenever blocks,
+# dynamic substitution, and goto loops.
+
+A Dictionary named RiskRegistry exists.
+Inside RiskRegistry, "Overdraft" maps to "HIGH RISK".
+Inside RiskRegistry, "Standard" maps to "LOW RISK".
+
+A Account named Primary exists.
+Primary's balance is 500.
+Primary's owner is "Bob".
+
+A Text named WarningLog exists as follows until EndLog:
+    =========================================
+    CRITICAL: Account values dropped below 0.
+    Investigation mandatory.
+    =========================================
+EndLog
+
+Label "Transaction Start".
+Print "Initializing daily financial verification processing."
+
+Whenever Primary's balance changes:
+    If Primary's balance is less than 0:
+        Print WarningLog.
+        Print "Status evaluation: " followed by (the value for "Overdraft" inside RiskRegistry).
+        Jump to the label "Transaction Start".
+
+# Triggering an adjustment - this will trigger the Whenever block
+Lower Primary's balance by 600.

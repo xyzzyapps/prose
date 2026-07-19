@@ -1,0 +1,31 @@
+# Variables and Types Example
+# Demonstrates all basic Prose data types.
+
+# Numbers
+A Number named Age exists.
+Age is 30.
+Print "Age is " followed by Age.
+
+# Text
+A Text named Name exists.
+Name is "Alice".
+Print "Name is " followed by Name.
+
+# Entity (object)
+A User named Alice exists.
+Alice's age is 25.
+Alice's role is "Administrator".
+Print Alice's role.
+
+# List
+A List named Staff exists.
+Staff contains Alice.
+
+# Dictionary
+A Dictionary named Capitals exists.
+Inside Capitals, "France" maps to "Paris".
+Inside Capitals, "Japan" maps to "Tokyo".
+
+A Text named Destination exists.
+Destination is the value for "Japan" inside Capitals.
+Print "The capital of Japan is " followed by Destination.
