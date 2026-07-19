@@ -1,0 +1,75 @@
+# Comprehensive test of all new features
+
+# --- Arithmetic Expressions ---
+A Number named X exists.
+X is 5 plus 3.
+Print "5 + 3 = " followed by X.
+
+A Number named Y exists.
+Y is 10 minus 4.
+Print "10 - 4 = " followed by Y.
+
+A Number named Z exists.
+Z is 3 times 7.
+Print "3 * 7 = " followed by Z.
+
+A Number named W exists.
+W is 20 divided by 4.
+Print "20 / 4 = " followed by W.
+
+# --- Comparisons ---
+A Number named Score exists.
+Score is 85.
+
+If Score is greater than or equal to 80:
+    Print "Grade: A".
+Otherwise if Score is greater than or equal to 70:
+    Print "Grade: B".
+Otherwise if Score is greater than or equal to 60:
+    Print "Grade: C".
+Otherwise:
+    Print "Grade: F".
+
+# --- Logic operators ---
+A Number named A exists.
+A is 10.
+
+A Number named B exists.
+B is 20.
+
+If A is greater than 5 and B is less than 30:
+    Print "Both conditions true".
+
+If A is less than 5 or B is greater than 15:
+    Print "At least one condition true".
+
+# --- Equality ---
+If Score is equal to 85:
+    Print "Score equals 85".
+
+If Score is not equal to 100:
+    Print "Score is not 100".
+
+# --- File I/O ---
+Write "Hello from Prose file I/O!" to the file "test_output.txt".
+
+A Text named FileContent exists.
+Read the file "test_output.txt" into FileContent.
+Print "File content: " followed by FileContent.
+
+# --- JSON Parsing ---
+A Text named JsonSource exists.
+JsonSource is "{\"name\": \"Alice\", \"age\": 30, \"skills\": [\"coding\", \"design\"]}".
+
+A Dictionary named Parsed exists.
+Parsed is the parsed JSON of JsonSource.
+
+Print "JSON name: " followed by (the value for "name" inside Parsed).
+
+# --- Try/Catch ---
+Try:
+    Execute the shell command "nonexistent-command-xyz".
+Catch the error into ErrMsg:
+    Print "Caught error: " followed by ErrMsg.
+
+Print "Program continues after error handling".

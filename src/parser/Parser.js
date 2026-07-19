@@ -17,6 +17,7 @@ import {
   DictionarySetStmt, ListAddStmt, QueryStmt,
   WheneverStmt, MutationStmt, ResultStmt, ExpressionStmt,
   UsingStmt, ShellStmt, ShellExpr,
+  TryStmt, ReadFileStmt, WriteFileStmt, JsonParseExpr, LogicalExpr,
   LiteralExpr, VariableExpr, PropertyAccessExpr,
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from './AST.js';
@@ -164,6 +165,7 @@ export class Parser {
     const patterns = [
       () => this._parseLabel(),
       () => this._parseWhenever(),
+      () => this._parseTry(),             // Try: ... Catch: ...
       () => this._parseIf(),
       () => this._parseWhile(),
       () => this._parseForEvery(),
@@ -172,6 +174,8 @@ export class Parser {
       () => this._parseUsing(),          // Using [verb] parse { ... }
       () => this._parseShellStmt(),      // Execute the shell command "..."
       () => this._parseExecute(),
+      () => this._parseReadFile(),       // Read the file "..." into X.
+      () => this._parseWriteFile(),      // Write ... to the file "...".
       () => this._parseVariableDecl(),
       () => this._parseDictionarySet(),
       () => this._parseQuery(),
@@ -372,6 +376,76 @@ export class Parser {
     return new ShellStmt(cmdExpr, execTok.line, execTok.column);
   }
 
+  /** `Try: ... Catch: ...` or `Try: ... Catch the error: ...` */
+  _parseTry() {
+    const tryTok = this._match(TokenType.WORD, 'try');
+    if (!tryTok) return null;
+
+    const tryBlock = this.consumeBlock();
+
+    // Skip NEWLINEs before Catch
+    while (this._check(TokenType.NEWLINE)) this._advance();
+
+    if (!this._match(TokenType.WORD, 'catch')) {
+      throw new SyntaxError('Expected "Catch" after Try block', tryTok.line, tryTok.column);
+    }
+
+    // Optional: "the error" or "the error into X"
+    // Don't _skipNoise here - "the" could be the next word
+    let errorVar = null;
+    if (this._match(TokenType.WORD, 'the')) {
+      this._match(TokenType.WORD, 'error');
+      if (this._match(TokenType.WORD, 'into')) {
+        errorVar = this._expect(TokenType.WORD).value;
+      }
+    }
+
+    const catchBlock = this.consumeBlock();
+
+    return new TryStmt(tryBlock, catchBlock, errorVar, tryTok.line, tryTok.column);
+  }
+
+  /** `Read the file [path] into [var].` */
+  _parseReadFile() {
+    this._skipNoise();
+    const readTok = this._match(TokenType.WORD, 'read');
+    if (!readTok) return null;
+
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    this._expect(TokenType.WORD, 'file');
+
+    const pathExpr = this.parseExpression();
+
+    this._skipNoise();
+    this._expect(TokenType.WORD, 'into');
+
+    const varTok = this._expect(TokenType.WORD);
+    this._expect(TokenType.PERIOD);
+
+    return new ReadFileStmt(pathExpr, varTok.value, readTok.line, readTok.column);
+  }
+
+  /** `Write [expr] to the file [path].` */
+  _parseWriteFile() {
+    this._skipNoise();
+    const writeTok = this._match(TokenType.WORD, 'write');
+    if (!writeTok) return null;
+
+    const valueExpr = this.parseExpression();
+
+    this._skipNoise();
+    this._expect(TokenType.WORD, 'to');
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    this._expect(TokenType.WORD, 'file');
+
+    const pathExpr = this.parseExpression();
+    this._expect(TokenType.PERIOD);
+
+    return new WriteFileStmt(valueExpr, pathExpr, writeTok.line, writeTok.column);
+  }
+
   /** `Execute the text inside varName.` */
   _parseExecute() {
     this._skipNoise();
@@ -392,33 +466,35 @@ export class Parser {
     const articleTok = this._match(TokenType.WORD, 'a') || this._match(TokenType.WORD, 'an');
     if (!articleTok) return null;
     this._skipNoise(); // skip any articles between "a" and the type
+
     const typeTok = this._current();
     // Type is a WORD (capitalized conventionally)
     if (typeTok.type !== TokenType.WORD) return null;
-    this._advance(); // consume type
-    this._skipNoise(); // skip articles between type and "named"
-    this._expect(TokenType.WORD, 'named');
-    const nameTok = this._expect(TokenType.WORD);
-    this._expect(TokenType.WORD, 'exists');
+
+    // Peek ahead: check that the full pattern "A Type named Name exists" is present
+    // to avoid greedily matching assignments like "A is 10."
+    const savedPos = this.pos;
+    this._advance(); // consume tentative type
+    this._skipNoise();
+    if (!this._match(TokenType.WORD, 'named')) {
+      this.pos = savedPos; // backtrack: not a declaration
+      return null;
+    }
+    // "named" matched, now check for name + "exists"
+    if (!this._check(TokenType.WORD)) {
+      this.pos = savedPos;
+      return null;
+    }
+    const nameTok = this._advance(); // consume name
+    this._skipNoise();
+    if (!this._match(TokenType.WORD, 'exists')) {
+      this.pos = savedPos; // not a declaration
+      return null;
+    }
 
     // Check for heredoc initializer
     if (this._check(TokenType.HEREDOC)) {
-      // Heredoc provides the initial value: A Text named X exists as follows until END: ... END
-      const heredocTok = this._advance(); // consume HEREDOC
-
-      // The variable declaration is implicit; we also create an assignment
-      // Return a special combined result? Or handle in interpreter.
-      // For now, emit declaration, then let the next line be an assignment.
-      // Actually, let's handle this differently - emit the declaration and
-      // an assignment as two statements. But parseStatement only returns one.
-      // Workaround: store the heredoc value and create assignment in caller.
-
-      // Actually, the cleanest approach: return the declaration, and the
-      // interpreter's _execVariableDecl will check if the next statement
-      // is an assignment to the same variable. But that's complex.
-      //
-      // Simpler: create a "declaration with initializer" that the interpreter
-      // handles. We'll use a flag on the VariableDeclaration.
+      const heredocTok = this._advance();
       const decl = new VariableDeclaration(
         typeTok.value, nameTok.value,
         typeTok.line, typeTok.column
@@ -436,9 +512,10 @@ export class Parser {
 
   /** `X is expr.` or `Entity's prop is expr.` */
   _parseAssignment() {
-    this._skipNoise();
     const firstTok = this._current();
-    if (firstTok.type !== TokenType.WORD) return null;
+    if (firstTok.type !== TokenType.WORD) {
+      return null;
+    }
 
     let entity = null;
     let target;
@@ -464,6 +541,7 @@ export class Parser {
     const value = this.parseExpression();
     this._expect(TokenType.PERIOD);
 
+    // REMOVE AFTER DEBUG: console.log(`_parseAssignment: returning Assignment(${target}, ...)`);
     return new Assignment(
       entity, target, value,
       firstTok.line, firstTok.column
@@ -483,38 +561,51 @@ export class Parser {
     return new PrintStmt(expr, printTok.line, printTok.column);
   }
 
-  /** `If expr: [block] (Otherwise: [block])?` */
+  /** `If expr: [block] (Otherwise: [block])? (Otherwise if expr: [block])*` */
   _parseIf() {
-    this._skipNoise();
     const ifTok = this._match(TokenType.WORD, 'if');
     if (!ifTok) return null;
 
-    this._skipNoise();
+    // Don't _skipNoise here - the condition may start with a variable named "A"
     const condition = this.parseExpression();
     const thenBlock = this.consumeBlock();
 
     let elseBlock = [];
-    // Check for "Otherwise:"
-    // Need to peek past any NEWLINEs
-    const savedPos = this.pos;
-    while (this._check(TokenType.NEWLINE)) this._advance();
-    this._skipNoise();
-    if (this._match(TokenType.WORD, 'otherwise')) {
-      elseBlock = this.consumeBlock();
-    } else {
-      this.pos = savedPos;
+    const elseIfs = [];
+
+    // Check for "Otherwise:" or "Otherwise if:"
+    while (true) {
+      const savedPos = this.pos;
+      while (this._check(TokenType.NEWLINE)) this._advance();
+      this._skipNoise();
+
+      if (!this._match(TokenType.WORD, 'otherwise')) {
+        this.pos = savedPos;
+        break;
+      }
+
+      // Check if it's "Otherwise if condition:"
+      this._skipNoise();
+      if (this._match(TokenType.WORD, 'if')) {
+        this._skipNoise();
+        const elifCond = this.parseExpression();
+        const elifBlock = this.consumeBlock();
+        elseIfs.push({ condition: elifCond, body: elifBlock });
+        // Continue looking for more else-ifs or a final Otherwise
+      } else {
+        // Plain "Otherwise:" final else block
+        elseBlock = this.consumeBlock();
+        break;
+      }
     }
 
-    return new IfStmt(condition, thenBlock, elseBlock, ifTok.line, ifTok.column);
+    return new IfStmt(condition, thenBlock, elseBlock, elseIfs, ifTok.line, ifTok.column);
   }
 
   /** `While expr: [block]` */
   _parseWhile() {
-    this._skipNoise();
     const whileTok = this._match(TokenType.WORD, 'while');
     if (!whileTok) return null;
-
-    this._skipNoise();
     const condition = this.parseExpression();
     const body = this.consumeBlock();
 
@@ -571,7 +662,6 @@ export class Parser {
 
   /** `VerbName arg1 arg2 ... .` */
   _parseVerbCall() {
-    this._skipNoise();
     const verbTok = this._current();
     if (verbTok.type !== TokenType.WORD) return null;
 
@@ -843,48 +933,109 @@ export class Parser {
    * Parse binary operations (lowest precedence).
    * Handles: "followed by", comparisons (is greater than, is less than, etc.)
    */
+  /**
+   * Parse binary operations (lowest precedence).
+   * Handles: "followed by", arithmetic (plus, minus, times, divided by),
+   * comparisons (is greater than, etc.), and logic (and, or).
+   */
   _parseBinaryOp() {
     let left = this._parsePrimary();
 
     while (true) {
       this._skipNoise();
 
-      // "followed by"
+      // "followed by" (string concatenation)
       if (this._check(TokenType.WORD, 'followed')) {
-        this._advance(); // "followed"
+        this._advance();
         this._skipNoise();
         this._expect(TokenType.WORD, 'by');
         this._skipNoise();
         const right = this._parsePrimary();
-        left = new BinaryOpExpr(
-          left, 'followed_by', right,
-          left.line, left.column
-        );
+        left = new BinaryOpExpr(left, 'followed_by', right, left.line, left.column);
         continue;
+      }
+
+      // Arithmetic: "plus", "minus", "times", "divided by"
+      const arithWord = this._current();
+      if (arithWord.type === TokenType.WORD) {
+        const aw = arithWord.value.toLowerCase();
+        if (aw === 'plus' || aw === 'minus' || aw === 'times') {
+          this._advance();
+          const op = aw === 'plus' ? 'plus' : aw === 'minus' ? 'minus' : 'times';
+          this._skipNoise();
+          const right = this._parsePrimary();
+          left = new BinaryOpExpr(left, op, right, left.line, left.column);
+          continue;
+        }
+        if (aw === 'divided') {
+          this._advance();
+          this._skipNoise();
+          this._expect(TokenType.WORD, 'by');
+          this._skipNoise();
+          const right = this._parsePrimary();
+          left = new BinaryOpExpr(left, 'divided_by', right, left.line, left.column);
+          continue;
+        }
+      }
+
+      // Logical operators: "and", "or"
+      if (this._check(TokenType.WORD)) {
+        const logicWord = this._current().value.toLowerCase();
+        if (logicWord === 'and' || logicWord === 'or') {
+          this._advance();
+          this._skipNoise();
+          const right = this._parseBinaryOp(); // parse full right expression
+          left = new LogicalExpr(left, logicWord, right, left.line, left.column);
+          continue;
+        }
       }
 
       // Comparison operators: "is greater than", "is less than", etc.
       if (this._check(TokenType.WORD, 'is')) {
         const savedPos = this.pos;
-        this._advance(); // consume "is"
+        this._advance();
         this._skipNoise();
         const opWord = this._current();
-        if (opWord.type !== TokenType.WORD) {
-          this.pos = savedPos;
-          break;
-        }
+        if (opWord.type !== TokenType.WORD) { this.pos = savedPos; break; }
         const opLower = opWord.value.toLowerCase();
         let op = null;
         if (opLower === 'greater') {
           this._advance();
           this._skipNoise();
-          this._expect(TokenType.WORD, 'than');
-          op = 'greater_than';
+          // Check for "greater than or equal to" before "greater than"
+          if (this._check(TokenType.WORD, 'than')) {
+            const savedPos2 = this.pos;
+            this._advance(); this._skipNoise();
+            if (this._check(TokenType.WORD, 'or')) {
+              this._advance(); this._skipNoise();
+              this._expect(TokenType.WORD, 'equal'); this._skipNoise();
+              this._expect(TokenType.WORD, 'to');
+              op = 'greater_equal';
+            } else {
+              // Just "greater than"
+              this.pos = savedPos2;
+              this._advance(); // consume "than"
+              op = 'greater_than';
+            }
+          } else { this.pos = savedPos; break; }
         } else if (opLower === 'less') {
           this._advance();
           this._skipNoise();
-          this._expect(TokenType.WORD, 'than');
-          op = 'less_than';
+          // Check for "less than or equal to" before "less than"
+          if (this._check(TokenType.WORD, 'than')) {
+            const savedPos2 = this.pos;
+            this._advance(); this._skipNoise();
+            if (this._check(TokenType.WORD, 'or')) {
+              this._advance(); this._skipNoise();
+              this._expect(TokenType.WORD, 'equal'); this._skipNoise();
+              this._expect(TokenType.WORD, 'to');
+              op = 'less_equal';
+            } else {
+              this.pos = savedPos2;
+              this._advance(); // consume "than"
+              op = 'less_than';
+            }
+          } else { this.pos = savedPos; break; }
         } else if (opLower === 'equal') {
           this._advance();
           this._skipNoise();
@@ -903,10 +1054,7 @@ export class Parser {
         }
         this._skipNoise();
         const right = this._parsePrimary();
-        left = new BinaryOpExpr(
-          left, op, right,
-          left.line, left.column
-        );
+        left = new BinaryOpExpr(left, op, right, left.line, left.column);
         continue;
       }
 
@@ -924,11 +1072,29 @@ export class Parser {
    * Structural words like "value", "for", "inside" are matched explicitly.
    */
   _parsePrimary() {
-    // Skip decorative articles only (a, an, the)
+    // Skip decorative articles only (a, an, the) UNLESS the next token
+    // indicates this is actually a variable reference (followed by 's, "is", etc.)
+    const savedPreSkip = this.pos;
     while (this._current().type === TokenType.WORD &&
            (this._current().value.toLowerCase() === 'a' ||
             this._current().value.toLowerCase() === 'an' ||
             this._current().value.toLowerCase() === 'the')) {
+      // Peek ahead: if followed by structural tokens, this is a variable, not an article
+      const peekTok = this._peek(1);
+      if (peekTok && (
+          peekTok.type === TokenType.POSSESSIVE ||
+          (peekTok.type === TokenType.WORD && peekTok.value.toLowerCase() === 'is') ||
+          (peekTok.type === TokenType.WORD && peekTok.value.toLowerCase() === 'followed') ||
+          (peekTok.type === TokenType.WORD && peekTok.value.toLowerCase() === 'plus') ||
+          (peekTok.type === TokenType.WORD && peekTok.value.toLowerCase() === 'minus') ||
+          (peekTok.type === TokenType.WORD && peekTok.value.toLowerCase() === 'times') ||
+          (peekTok.type === TokenType.WORD && peekTok.value.toLowerCase() === 'divided') ||
+          (peekTok.type === TokenType.WORD && (peekTok.value.toLowerCase() === 'and' || peekTok.value.toLowerCase() === 'or'))
+      )) {
+        // This is a variable reference, don't skip
+        break;
+      }
+      // Skip the article
       this._advance();
     }
 
@@ -1040,6 +1206,35 @@ export class Parser {
         this.pos = savedPos;
         // Fall through to word handling below
       }
+    }
+
+    // JSON parse: "the parsed JSON of [expr]" or just "parsed JSON of"
+    {
+      const savedPos = this.pos;
+      // Either we're at "the" (not yet skipped) or "parsed" (articles already skipped)
+      if (this._check(TokenType.WORD, 'the')) {
+        this._advance();
+        while (this._current().type === TokenType.WORD &&
+               (this._current().value.toLowerCase() === 'a' ||
+                this._current().value.toLowerCase() === 'an' ||
+                this._current().value.toLowerCase() === 'the')) {
+          this._advance();
+        }
+      }
+      if (this._check(TokenType.WORD, 'parsed')) {
+        this._advance();
+        this._skipNoise();
+        const jsonTok = this._current();
+        if (jsonTok.type === TokenType.WORD &&
+            jsonTok.value.toLowerCase() === 'json') {
+          this._advance();
+          this._skipNoise();
+          this._expect(TokenType.WORD, 'of');
+          const sourceExpr = this.parseExpression();
+          return new JsonParseExpr(sourceExpr, tok.line, tok.column);
+        }
+      }
+      this.pos = savedPos;
     }
 
     // Variable or property access

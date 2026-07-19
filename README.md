@@ -217,6 +217,9 @@ examples/
   variables.prose     Data types and collections
   bank_simple.prose   Bank transaction with Whenever
   bank.prose          Full bank example with Goto loop
+  dsl_shell.prose     DSL blocks and shell commands
+  minimal_dsl.prose   Minimal DSL example
+  new_features.prose  Arithmetic, comparisons, logic, else-if, file I/O, JSON, try/catch
 ```
 
 ## License

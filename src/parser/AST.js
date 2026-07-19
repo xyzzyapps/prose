@@ -93,20 +93,22 @@ export class PrintStmt extends Stmt {
   nodeType() { return 'PrintStmt'; }
 }
 
-/** `If condition: ... Otherwise: ...` */
+/** `If condition: ... Otherwise: ...` with optional else-if chains */
 export class IfStmt extends Stmt {
   /**
    * @param {Expr} condition
    * @param {Stmt[]} thenBlock
    * @param {Stmt[]} elseBlock
+   * @param {Array<{condition: Expr, body: Stmt[]}>} [elseIfs]
    * @param {number} line
    * @param {number} column
    */
-  constructor(condition, thenBlock, elseBlock, line, column) {
+  constructor(condition, thenBlock, elseBlock, elseIfs = [], line = 0, column = 0) {
     super(line, column);
     this.condition = condition;
     this.thenBlock = thenBlock;   // Stmt[]
     this.elseBlock = elseBlock;   // Stmt[] (may be empty [])
+    this.elseIfs = elseIfs;       // [{condition: Expr, body: Stmt[]}, ...]
   }
   nodeType() { return 'IfStmt'; }
 }
@@ -492,4 +494,90 @@ export class DictionaryAccessExpr extends Expr {
     this.key = key;
   }
   nodeType() { return 'DictionaryAccessExpr'; }
+}
+
+// ---------------------------------------------------------------------------
+// New: Try/Catch, File I/O, JSON, Logic operators
+// ---------------------------------------------------------------------------
+
+/** `Try: ... Catch: ...` or `Try: ... Catch the error: ...` */
+export class TryStmt extends Stmt {
+  /**
+   * @param {Stmt[]} tryBlock
+   * @param {Stmt[]} catchBlock
+   * @param {string|null} errorVar  variable name to bind the error, or null
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(tryBlock, catchBlock, errorVar = null, line = 0, column = 0) {
+    super(line, column);
+    this.tryBlock = tryBlock;
+    this.catchBlock = catchBlock;
+    this.errorVar = errorVar;
+  }
+  nodeType() { return 'TryStmt'; }
+}
+
+/** `Read the file [path] into [var].` */
+export class ReadFileStmt extends Stmt {
+  /**
+   * @param {Expr} pathExpr
+   * @param {string} targetVar
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(pathExpr, targetVar, line, column) {
+    super(line, column);
+    this.pathExpr = pathExpr;
+    this.targetVar = targetVar;
+  }
+  nodeType() { return 'ReadFileStmt'; }
+}
+
+/** `Write [expr] to the file [path].` */
+export class WriteFileStmt extends Stmt {
+  /**
+   * @param {Expr} valueExpr
+   * @param {Expr} pathExpr
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(valueExpr, pathExpr, line, column) {
+    super(line, column);
+    this.valueExpr = valueExpr;
+    this.pathExpr = pathExpr;
+  }
+  nodeType() { return 'WriteFileStmt'; }
+}
+
+/** `the parsed JSON of [expr]` - parses a JSON string into dict/list */
+export class JsonParseExpr extends Expr {
+  /**
+   * @param {Expr} sourceExpr  expression evaluating to JSON text
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(sourceExpr, line, column) {
+    super(line, column);
+    this.sourceExpr = sourceExpr;
+  }
+  nodeType() { return 'JsonParseExpr'; }
+}
+
+/** Logical combination: `X and Y`, `X or Y` */
+export class LogicalExpr extends Expr {
+  /**
+   * @param {Expr} left
+   * @param {string} op  'and' or 'or'
+   * @param {Expr} right
+   * @param {number} line
+   * @param {number} column
+   */
+  constructor(left, op, right, line, column) {
+    super(line, column);
+    this.left = left;
+    this.op = op;
+    this.right = right;
+  }
+  nodeType() { return 'LogicalExpr'; }
 }

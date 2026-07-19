@@ -20,6 +20,7 @@ import {
   DictionarySetStmt, ListAddStmt, QueryStmt,
   WheneverStmt, MutationStmt, ResultStmt, ExpressionStmt,
   UsingStmt, ShellStmt, ShellExpr,
+  TryStmt, ReadFileStmt, WriteFileStmt, JsonParseExpr, LogicalExpr,
   LiteralExpr, VariableExpr, PropertyAccessExpr,
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from '../parser/AST.js';
@@ -35,6 +36,8 @@ import { registerBuiltins, valueToNumber, valueToString } from './Builtins.js';
 import { Lexer } from '../lexer/Lexer.js';
 import { Parser } from '../parser/Parser.js';
 import * as child_process from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 const logger = new Logger('interpreter');
 
@@ -155,6 +158,8 @@ export class Interpreter {
       case CallExpr: return this._evalCallExpr(expr);
       case DictionaryAccessExpr: return this._evalDictionaryAccess(expr);
       case ShellExpr: return this._evalShellExpr(expr);
+      case JsonParseExpr: return this._evalJsonParse(expr);
+      case LogicalExpr: return this._evalLogical(expr);
       default:
         throw new RuntimeError(
           `Unknown expression type: ${expr.constructor.name}`,
@@ -192,6 +197,9 @@ export class Interpreter {
       case ExpressionStmt: return this._execExpressionStmt(stmt);
       case UsingStmt: return this._execUsing(stmt);
       case ShellStmt: return this._execShellStmt(stmt);
+      case TryStmt: return this._execTry(stmt);
+      case ReadFileStmt: return this._execReadFile(stmt);
+      case WriteFileStmt: return this._execWriteFile(stmt);
       default:
         throw new RuntimeError(
           `Unknown statement type: ${stmt.constructor.name}`,
@@ -272,6 +280,12 @@ export class Interpreter {
       case 'less_than':
         return new NumberValue(this.toNumber(left) < this.toNumber(right) ? 1 : 0);
 
+      case 'greater_equal':
+        return new NumberValue(this.toNumber(left) >= this.toNumber(right) ? 1 : 0);
+
+      case 'less_equal':
+        return new NumberValue(this.toNumber(left) <= this.toNumber(right) ? 1 : 0);
+
       case 'equal_to':
         return new NumberValue(this.stringify(left) === this.stringify(right) ? 1 : 0);
 
@@ -295,6 +309,15 @@ export class Interpreter {
 
       case 'divided_by':
         return new NumberValue(this.toNumber(left) / this.toNumber(right));
+
+      case 'plus':
+        return new NumberValue(this.toNumber(left) + this.toNumber(right));
+
+      case 'minus':
+        return new NumberValue(this.toNumber(left) - this.toNumber(right));
+
+      case 'times':
+        return new NumberValue(this.toNumber(left) * this.toNumber(right));
 
       default:
         throw new RuntimeError(
@@ -454,7 +477,20 @@ export class Interpreter {
     const condition = this.evaluate(stmt.condition);
     if (this.isTruthy(condition)) {
       this._executeBlock(stmt.thenBlock);
-    } else if (stmt.elseBlock && stmt.elseBlock.length > 0) {
+      return NULL;
+    }
+
+    // Check else-if chains
+    if (stmt.elseIfs) {
+      for (const elif of stmt.elseIfs) {
+        if (this.isTruthy(this.evaluate(elif.condition))) {
+          this._executeBlock(elif.body);
+          return NULL;
+        }
+      }
+    }
+
+    if (stmt.elseBlock && stmt.elseBlock.length > 0) {
       this._executeBlock(stmt.elseBlock);
     }
     return NULL;
@@ -771,6 +807,109 @@ export class Interpreter {
     } catch (e) {
       return new ShellResultValue('', e.message, 1);
     }
+  }
+
+  /** @param {TryStmt} stmt */
+  _execTry(stmt) {
+    try {
+      this._executeBlock(stmt.tryBlock);
+    } catch (e) {
+      // Bind error to variable if specified
+      if (stmt.errorVar) {
+        const errMsg = e instanceof ProseError ? e.toString() : e.message;
+        this.env.define(stmt.errorVar, new TextValue(errMsg));
+      }
+      // Execute catch block
+      const catchEnv = this.env.pushScope();
+      if (stmt.errorVar) {
+        const errMsg = e instanceof ProseError ? e.toString() : e.message;
+        catchEnv.define(stmt.errorVar, new TextValue(errMsg));
+      }
+      const catchInterp = new Interpreter(catchEnv);
+      catchInterp.outputBuffer = this.outputBuffer;
+      catchInterp._executeBlock(stmt.catchBlock);
+    }
+  }
+
+  /** @param {ReadFileStmt} stmt */
+  _execReadFile(stmt) {
+    const pathVal = this.evaluate(stmt.pathExpr);
+    const filePath = this.stringify(pathVal);
+    logger.debug(`Reading file: ${filePath}`);
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      this.env.set(stmt.targetVar, new TextValue(content), true);
+    } catch (e) {
+      throw new RuntimeError(`Cannot read file "${filePath}": ${e.message}`, stmt.line, stmt.column);
+    }
+    return NULL;
+  }
+
+  /** @param {WriteFileStmt} stmt */
+  _execWriteFile(stmt) {
+    const valueVal = this.evaluate(stmt.valueExpr);
+    const content = this.stringify(valueVal);
+    const pathVal = this.evaluate(stmt.pathExpr);
+    const filePath = this.stringify(pathVal);
+    logger.debug(`Writing file: ${filePath}`);
+    try {
+      fs.writeFileSync(filePath, content, 'utf-8');
+    } catch (e) {
+      throw new RuntimeError(`Cannot write file "${filePath}": ${e.message}`, stmt.line, stmt.column);
+    }
+    return NULL;
+  }
+
+  /** @param {JsonParseExpr} expr */
+  _evalJsonParse(expr) {
+    const sourceVal = this.evaluate(expr.sourceExpr);
+    const jsonText = this.stringify(sourceVal);
+    logger.debug(`Parsing JSON (${jsonText.length} chars)`);
+    try {
+      const parsed = JSON.parse(jsonText);
+      return this._jsonToValue(parsed);
+    } catch (e) {
+      throw new RuntimeError(`Invalid JSON: ${e.message}`, expr.line, expr.column);
+    }
+  }
+
+  /**
+   * Convert a JSON-parsed value to Prose values.
+   */
+  _jsonToValue(jsVal) {
+    if (jsVal === null || jsVal === undefined) return NULL;
+    if (typeof jsVal === 'number') return new NumberValue(jsVal);
+    if (typeof jsVal === 'string') return new TextValue(jsVal);
+    if (typeof jsVal === 'boolean') return new TextValue(String(jsVal));
+    if (Array.isArray(jsVal)) {
+      const list = new ListValue();
+      for (const item of jsVal) list.push(this._jsonToValue(item));
+      return list;
+    }
+    if (typeof jsVal === 'object') {
+      const dict = new DictionaryValue();
+      for (const [key, val] of Object.entries(jsVal)) {
+        dict.set(key, this._jsonToValue(val));
+      }
+      return dict;
+    }
+    return new TextValue(String(jsVal));
+  }
+
+  /** @param {LogicalExpr} expr */
+  _evalLogical(expr) {
+    const left = this.evaluate(expr.left);
+    const leftTruthy = this.isTruthy(left);
+
+    if (expr.op === 'and') {
+      if (!leftTruthy) return new NumberValue(0);
+      const right = this.evaluate(expr.right);
+      return new NumberValue(this.isTruthy(right) ? 1 : 0);
+    }
+    // 'or'
+    if (leftTruthy) return new NumberValue(1);
+    const right = this.evaluate(expr.right);
+    return new NumberValue(this.isTruthy(right) ? 1 : 0);
   }
 
   // -----------------------------------------------------------------------
