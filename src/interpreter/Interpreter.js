@@ -22,6 +22,7 @@ import {
   UsingStmt, ShellStmt, ShellExpr,
   TryStmt, ReadFileStmt, WriteFileStmt, JsonParseExpr, LogicalExpr,
   EnvVarExpr, FetchExpr, RangeForStmt, PipeShellStmt, IncludeStmt,
+  MapExpr, FilterExpr, SumExpr, AfterStmt, EveryStmt, DeleteFileStmt, ListFilesExpr,
   LiteralExpr, VariableExpr, PropertyAccessExpr,
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from '../parser/AST.js';
@@ -163,6 +164,10 @@ export class Interpreter {
       case LogicalExpr: return this._evalLogical(expr);
       case EnvVarExpr: return this._evalEnvVar(expr);
       case FetchExpr: return this._evalFetch(expr);
+      case MapExpr: return this._evalMap(expr);
+      case FilterExpr: return this._evalFilter(expr);
+      case SumExpr: return this._evalSum(expr);
+      case ListFilesExpr: return this._evalListFiles(expr);
       default:
         throw new RuntimeError(
           `Unknown expression type: ${expr.constructor.name}`,
@@ -206,6 +211,9 @@ export class Interpreter {
       case RangeForStmt: return this._execRangeFor(stmt);
       case PipeShellStmt: return this._execPipeShell(stmt);
       case IncludeStmt: return this._execInclude(stmt);
+      case AfterStmt: return this._execAfter(stmt);
+      case EveryStmt: return this._execEvery(stmt);
+      case DeleteFileStmt: return this._execDeleteFile(stmt);
       default:
         throw new RuntimeError(
           `Unknown statement type: ${stmt.constructor.name}`,
@@ -459,13 +467,23 @@ export class Interpreter {
       logger.debug(`Set ${stmt.entity}'s ${stmt.target} = ${this.stringify(value)}`);
     } else {
       // Simple variable assignment: X is 30.
-      this.env.set(stmt.target, value);
-      logger.debug(`Set ${stmt.target} = ${this.stringify(value)}`);
-
-      // If this is an entity, fire watchers for all properties
+      // Auto-declare if variable doesn't exist yet
       const existing = this.env.lookup(stmt.target);
-      if (existing instanceof EntityValue) {
-        this.env.fireWatchers(stmt.target, '*', existing, value, this);
+      if (!existing) {
+        // Implicit declaration - create with appropriate type
+        this.env.define(stmt.target, value);
+        logger.debug(`Implicitly declared ${value.typeName()} named ${stmt.target} = ${this.stringify(value)}`);
+      } else {
+        this.env.set(stmt.target, value);
+        logger.debug(`Set ${stmt.target} = ${this.stringify(value)}`);
+      }
+
+      // If this is an entity, fire watchers
+      if (value instanceof EntityValue) {
+        this.env.fireWatchers(stmt.target, '*', value, value, this);
+      } else {
+        // Fire variable-change watchers
+        this.env.fireVarWatchers(stmt.target, value, this);
       }
     }
 
@@ -1008,6 +1026,91 @@ export class Interpreter {
       throw new RuntimeError(`Cannot include "${filePath}": ${e.message}`, stmt.line, stmt.column);
     }
     return NULL;
+  }
+
+  /** @param {MapExpr} expr */
+  _evalMap(expr) {
+    const source = this.evaluate(expr.sourceExpr);
+    if (!(source instanceof ListValue)) throw new RuntimeError('Map requires a List', expr.line, expr.column);
+    const result = new ListValue();
+    for (const item of source.items) {
+      const mapped = this._callVerb(expr.verbName, [new LiteralExpr('text', this.stringify(item), 0, 0)], expr.line, expr.column);
+      result.push(mapped);
+    }
+    return result;
+  }
+
+  /** @param {FilterExpr} expr */
+  _evalFilter(expr) {
+    const source = this.evaluate(expr.sourceExpr);
+    if (!(source instanceof ListValue)) throw new RuntimeError('Filter requires a List', expr.line, expr.column);
+    const result = new ListValue();
+    for (const item of source.items) {
+      // Bind item as a variable for condition evaluation
+      this.env.define('_item', item);
+      const cond = this.evaluate(expr.condition);
+      if (this.isTruthy(cond)) result.push(item);
+    }
+    return result;
+  }
+
+  /** @param {SumExpr} expr */
+  _evalSum(expr) {
+    const source = this.evaluate(expr.sourceExpr);
+    if (!(source instanceof ListValue)) throw new RuntimeError('Sum requires a List', expr.line, expr.column);
+    let total = 0;
+    for (const item of source.items) total += this.toNumber(item);
+    return new NumberValue(total);
+  }
+
+  /** @param {AfterStmt} stmt */
+  _execAfter(stmt) {
+    const secs = this.toNumber(this.evaluate(stmt.secondsExpr));
+    logger.debug(`Sleeping ${secs} seconds...`);
+    child_process.spawnSync(process.platform === 'win32' ? 'timeout' : 'sleep', [
+      process.platform === 'win32' ? `/t ${secs}` : String(secs),
+      process.platform === 'win32' ? '/nobreak' : ''
+    ].filter(Boolean), { stdio: 'ignore', timeout: secs * 1000 + 5000 });
+    this._executeBlock(stmt.body);
+    return NULL;
+  }
+
+  /** @param {EveryStmt} stmt */
+  _execEvery(stmt) {
+    const secs = this.toNumber(this.evaluate(stmt.secondsExpr));
+    // Run up to 100 iterations
+    for (let i = 0; i < 100; i++) {
+      child_process.spawnSync(process.platform === 'win32' ? 'timeout' : 'sleep', [
+        process.platform === 'win32' ? `/t ${secs}` : String(secs),
+        process.platform === 'win32' ? '/nobreak' : ''
+      ].filter(Boolean), { stdio: 'ignore', timeout: secs * 1000 + 5000 });
+      this._executeBlock(stmt.body);
+    }
+    return NULL;
+  }
+
+  /** @param {DeleteFileStmt} stmt */
+  _execDeleteFile(stmt) {
+    const pathVal = this.evaluate(stmt.pathExpr);
+    const filePath = this.stringify(pathVal);
+    try { fs.unlinkSync(filePath); } catch (e) {
+      throw new RuntimeError(`Cannot delete "${filePath}": ${e.message}`, stmt.line, stmt.column);
+    }
+    return NULL;
+  }
+
+  /** @param {ListFilesExpr} expr */
+  _evalListFiles(expr) {
+    const dirVal = this.evaluate(expr.dirExpr);
+    const dirPath = this.stringify(dirVal);
+    try {
+      const files = fs.readdirSync(dirPath);
+      const list = new ListValue();
+      for (const f of files) list.push(new TextValue(f));
+      return list;
+    } catch (e) {
+      throw new RuntimeError(`Cannot list "${dirPath}": ${e.message}`, expr.line, expr.column);
+    }
   }
 
   // -----------------------------------------------------------------------

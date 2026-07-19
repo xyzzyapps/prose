@@ -19,6 +19,7 @@ import {
   UsingStmt, ShellStmt, ShellExpr,
   TryStmt, ReadFileStmt, WriteFileStmt, JsonParseExpr, LogicalExpr,
   EnvVarExpr, FetchExpr, RangeForStmt, PipeShellStmt, IncludeStmt,
+  MapExpr, FilterExpr, SumExpr, AfterStmt, EveryStmt, DeleteFileStmt, ListFilesExpr,
   LiteralExpr, VariableExpr, PropertyAccessExpr,
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from './AST.js';
@@ -166,6 +167,8 @@ export class Parser {
     const patterns = [
       () => this._parseLabel(),
       () => this._parseWhenever(),
+      () => this._parseAfter(),          // After N seconds:
+      () => this._parseEvery(),          // Every N seconds:
       () => this._parseTry(),             // Try: ... Catch: ...
       () => this._parseIf(),
       () => this._parseWhile(),
@@ -180,6 +183,7 @@ export class Parser {
       () => this._parseReadFile(),       // Read the file "..." into X.
       () => this._parseWriteFile(),      // Write ... to the file "...".
       () => this._parseInclude(),        // Include "file.prose".
+      () => this._parseDeleteFile(),      // Delete the file "path".
       () => this._parseVariableDecl(),
       () => this._parseDictionarySet(),
       () => this._parseQuery(),
@@ -505,26 +509,16 @@ export class Parser {
     // Type is a WORD (capitalized conventionally)
     if (typeTok.type !== TokenType.WORD) return null;
 
-    // Peek ahead: check that the full pattern "A Type named Name exists" is present
-    // to avoid greedily matching assignments like "A is 10."
-    const savedPos = this.pos;
-    this._advance(); // consume tentative type
+    // Consume the type word
+    this._advance();
+    // "named" is optional - accept "A Number X exists." or "A Number named X exists."
     this._skipNoise();
-    if (!this._match(TokenType.WORD, 'named')) {
-      this.pos = savedPos; // backtrack: not a declaration
-      return null;
-    }
-    // "named" matched, now check for name + "exists"
-    if (!this._check(TokenType.WORD)) {
-      this.pos = savedPos;
-      return null;
-    }
-    const nameTok = this._advance(); // consume name
+    this._match(TokenType.WORD, 'named');
     this._skipNoise();
-    if (!this._match(TokenType.WORD, 'exists')) {
-      this.pos = savedPos; // not a declaration
-      return null;
-    }
+    if (!this._check(TokenType.WORD)) return null;
+    const nameTok = this._advance();
+    this._skipNoise();
+    if (!this._match(TokenType.WORD, 'exists')) return null;
 
     // Check for heredoc initializer
     if (this._check(TokenType.HEREDOC)) {
@@ -886,7 +880,6 @@ export class Parser {
 
   /** `Whenever entity's prop changes: [block]` */
   _parseWhenever() {
-    this._skipNoise();
     const wheneverTok = this._match(TokenType.WORD, 'whenever');
     if (!wheneverTok) return null;
 
@@ -896,18 +889,10 @@ export class Parser {
     if (this._check(TokenType.POSSESSIVE)) {
       this._advance(); // consume 's
       propertyName = this._expect(TokenType.WORD).value;
-    } else {
-      // "Core's status" pattern - possessive next
-      // Already handled above. If no possessive, "Core changes" maybe?
-      // Skip noise words
-      while (this._check(TokenType.WORD) &&
-             this._current().value.toLowerCase() !== 'changes') {
-        this._advance();
-      }
     }
+    // else: plain variable watch - propertyName stays null
 
     this._skipNoise();
-    // Skip "changes" if present
     if (this._check(TokenType.WORD) &&
         this._current().value.toLowerCase() === 'changes') {
       this._advance();
@@ -919,6 +904,42 @@ export class Parser {
       entityTok.value, propertyName, body,
       wheneverTok.line, wheneverTok.column
     );
+  }
+
+  /** `After N seconds: ...` */
+  _parseAfter() {
+    const afterTok = this._match(TokenType.WORD, 'after');
+    if (!afterTok) return null;
+    const secExpr = this.parseExpression();
+    this._skipNoise();
+    this._match(TokenType.WORD, 'second');
+    this._match(TokenType.WORD, 'seconds');
+    const body = this.consumeBlock();
+    return new AfterStmt(secExpr, body, afterTok.line, afterTok.column);
+  }
+
+  /** `Every N seconds: ...` */
+  _parseEvery() {
+    const everyTok = this._match(TokenType.WORD, 'every');
+    if (!everyTok) return null;
+    const secExpr = this.parseExpression();
+    this._skipNoise();
+    this._match(TokenType.WORD, 'second');
+    this._match(TokenType.WORD, 'seconds');
+    const body = this.consumeBlock();
+    return new EveryStmt(secExpr, body, everyTok.line, everyTok.column);
+  }
+
+  /** `Delete the file "path".` */
+  _parseDeleteFile() {
+    const delTok = this._match(TokenType.WORD, 'delete');
+    if (!delTok) return null;
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    this._match(TokenType.WORD, 'file');
+    const pathExpr = this.parseExpression();
+    this._expect(TokenType.PERIOD);
+    return new DeleteFileStmt(pathExpr, delTok.line, delTok.column);
   }
 
   /** `Increase/Lower/Set target by/to expr.` */
@@ -1343,6 +1364,52 @@ export class Parser {
         return new FetchExpr(urlExpr, tok.line, tok.column);
       }
       this.pos = savedPos;
+    }
+
+    // Map: "every item in List transformed by Verb"
+    // Filter: "every item in List where condition"
+    // Sum: "the sum of List"
+    // List files: "the list of files in Dir"
+    if (tok.type === TokenType.WORD) {
+      const tokLower = tok.value.toLowerCase();
+      if (tokLower === 'every') {
+        const savedPos = this.pos;
+        this._advance(); // consume "every"
+        this._skipNoise();
+        this._match(TokenType.WORD, 'item');
+        this._skipNoise();
+        this._expect(TokenType.WORD, 'in');
+        const sourceExpr = this.parseExpression();
+        this._skipNoise();
+        if (this._match(TokenType.WORD, 'transformed')) {
+          this._skipNoise();
+          this._expect(TokenType.WORD, 'by');
+          const verbName = this._expect(TokenType.WORD).value;
+          return new MapExpr(sourceExpr, verbName, tok.line, tok.column);
+        }
+        if (this._match(TokenType.WORD, 'where')) {
+          const condition = this.parseExpression();
+          return new FilterExpr(sourceExpr, condition, tok.line, tok.column);
+        }
+        this.pos = savedPos;
+      }
+      if (tokLower === 'the' || tokLower === 'sum' || tokLower === 'list') {
+        const savedPos = this.pos;
+        if (tokLower === 'the') { this._advance(); this._skipNoise(); }
+        if (this._check(TokenType.WORD, 'sum')) {
+          this._advance(); this._skipNoise();
+          this._expect(TokenType.WORD, 'of');
+          return new SumExpr(this.parseExpression(), tok.line, tok.column);
+        }
+        if (this._check(TokenType.WORD, 'list')) {
+          this._advance(); this._skipNoise();
+          this._expect(TokenType.WORD, 'of');
+          this._match(TokenType.WORD, 'files'); this._skipNoise();
+          this._expect(TokenType.WORD, 'in');
+          return new ListFilesExpr(this.parseExpression(), tok.line, tok.column);
+        }
+        this.pos = savedPos;
+      }
     }
 
     // Variable or property access

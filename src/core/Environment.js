@@ -164,6 +164,22 @@ export class Environment {
   }
 
   /**
+   * Fire watchers for plain variable changes (non-entity).
+   */
+  fireVarWatchers(varName, newValue, interpreter) {
+    const key = varName.toLowerCase();
+    for (const w of this.watchers) {
+      if (w.entityName.toLowerCase() === key && w.propertyName === null) {
+        try {
+          w.callback(null, interpreter);
+        } catch (e) {
+          console.error(`Watcher error on ${varName}: ${e.message}`);
+        }
+      }
+    }
+  }
+
+  /**
    * Create a child scope (for verb execution, block scopes, etc.)
    * @returns {Environment}
    */

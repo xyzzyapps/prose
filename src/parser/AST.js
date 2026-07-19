@@ -634,3 +634,74 @@ export class IncludeStmt extends Stmt {
   }
   nodeType() { return 'IncludeStmt'; }
 }
+
+// ---------------------------------------------------------------------------
+// New: Map/Filter/Sum, Timed blocks, File ops, Extended Whenever
+// ---------------------------------------------------------------------------
+
+/** `List is every item in Source transformed by Verb.` */
+export class MapExpr extends Expr {
+  constructor(sourceExpr, verbName, line, column) {
+    super(line, column);
+    this.sourceExpr = sourceExpr;
+    this.verbName = verbName;
+  }
+  nodeType() { return 'MapExpr'; }
+}
+
+/** `List is every item in Source where condition.` */
+export class FilterExpr extends Expr {
+  constructor(sourceExpr, condition, line, column) {
+    super(line, column);
+    this.sourceExpr = sourceExpr;
+    this.condition = condition;
+  }
+  nodeType() { return 'FilterExpr'; }
+}
+
+/** `X is the sum of List.` */
+export class SumExpr extends Expr {
+  constructor(sourceExpr, line, column) {
+    super(line, column);
+    this.sourceExpr = sourceExpr;
+  }
+  nodeType() { return 'SumExpr'; }
+}
+
+/** `After N seconds: ...` */
+export class AfterStmt extends Stmt {
+  constructor(secondsExpr, body, line, column) {
+    super(line, column);
+    this.secondsExpr = secondsExpr;
+    this.body = body;
+  }
+  nodeType() { return 'AfterStmt'; }
+}
+
+/** `Every N seconds: ...` */
+export class EveryStmt extends Stmt {
+  constructor(secondsExpr, body, line, column) {
+    super(line, column);
+    this.secondsExpr = secondsExpr;
+    this.body = body;
+  }
+  nodeType() { return 'EveryStmt'; }
+}
+
+/** `Delete the file "path".` */
+export class DeleteFileStmt extends Stmt {
+  constructor(pathExpr, line, column) {
+    super(line, column);
+    this.pathExpr = pathExpr;
+  }
+  nodeType() { return 'DeleteFileStmt'; }
+}
+
+/** `the list of files in "dir"` */
+export class ListFilesExpr extends Expr {
+  constructor(dirExpr, line, column) {
+    super(line, column);
+    this.dirExpr = dirExpr;
+  }
+  nodeType() { return 'ListFilesExpr'; }
+}

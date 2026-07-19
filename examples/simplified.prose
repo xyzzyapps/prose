@@ -1,0 +1,52 @@
+# Simplified Prose Demo - New Features
+
+# --- Implicit variable declaration ---
+# No need for "A Number named X exists." - just assign!
+X is 42.
+Print "X = ${X}".
+
+Name is "Prose".
+Print "Hello, ${Name}!".
+
+# --- Map: transform every item ---
+To double a Number:
+    Result is Number times 2.
+
+A List named Numbers exists.
+Numbers contains 1, 2, 3, 4, and 5.
+
+A List named Doubled exists.
+Doubled is every item in Numbers transformed by double.
+Print "Doubled: " followed by Doubled.
+
+# --- Filter: keep items where condition ---
+A List named Big exists.
+Big is every item in Numbers where _item is greater than 2.
+Print "Big: " followed by Big.
+
+# --- Sum ---
+A Number named Total exists.
+Total is the sum of Numbers.
+Print "Sum: " followed by Total.
+
+# --- Whenever on plain variable ---
+Whenever X changes:
+    Print "X changed to ${X}!".
+
+X is 100.
+
+# --- File ops ---
+Write "test data" to the file "test_simplify.txt".
+Print "File written".
+
+A Text named ReadBack exists.
+Read the file "test_simplify.txt" into ReadBack.
+Print "Read: " followed by ReadBack.
+
+Delete the file "test_simplify.txt".
+Print "File deleted".
+
+# --- List directory ---
+A List named DirFiles exists.
+DirFiles is the list of files in ".".
+Print "Files in current dir: " followed by DirFiles.
