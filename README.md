@@ -32,12 +32,19 @@ esh --help, -h               Show help
 
 ### Variables and Types
 
-```
-A Number named Age exists.
-Age is 30.
+Implicit declaration -- just assign, the type is inferred:
 
-A Text named Name exists.
-Name is "Alice".
+```
+X is 42.                    # Creates a Number
+Name is "Alice".            # Creates a Text
+Pi is 3.14.                 # Creates a Number
+```
+
+Explicit declarations still work and `named` is optional:
+
+```
+A Number Age exists.        # Short form
+A Text named Name exists.   # Long form (backward compatible)
 ```
 
 ### String Interpolation
@@ -67,29 +74,46 @@ A Text named Warning exists as follows until EndMsg:
 EndMsg
 ```
 
-### Dictionaries
+### Collections
 
+**Lists:**
 ```
-A Dictionary named Capitals exists.
-Inside Capitals, "France" maps to "Paris".
-Inside Capitals, "Japan" maps to "Tokyo".
-
-Print the value for "Japan" inside Capitals.
-```
-
-### Lists and Queries
-
-```
-A List named Staff exists.
+A List Staff exists.
 Staff contains Alice, Bob, and Charlie.
 
 Find every User in Staff whose role is "Administrator".
 ```
 
+**Map (transform every item):**
+```
+To double a Number:
+    Result is Number times 2.
+
+A List Doubled exists.
+Doubled is every item in Numbers transformed by double.
+```
+
+**Filter (keep matching items):**
+```
+A List Big exists.
+Big is every item in Numbers where _item is greater than 3.
+```
+
+**Sum:**
+```
+Total is the sum of Numbers.
+```
+
+**Dictionaries:**
+```
+A Dictionary Capitals exists.
+Inside Capitals, "France" maps to "Paris".
+Print the value for "Japan" inside Capitals.
+```
+
 ### Arithmetic Expressions
 
 ```
-A Number named X exists.
 X is 5 plus 3.          # 8
 X is 10 minus 4.        # 6
 X is 3 times 7.         # 21
@@ -103,59 +127,64 @@ If Score is greater than or equal to 80:
     Print "Grade: A".
 Otherwise if Score is greater than or equal to 70:
     Print "Grade: B".
-Otherwise if Score is greater than or equal to 60:
-    Print "Grade: C".
 Otherwise:
     Print "Grade: F".
 ```
 
 Supported comparisons: `is greater than`, `is less than`, `is equal to`, `is not equal to`, `is greater than or equal to`, `is less than or equal to`.
 
-### Logic Operators
-
-```
-If A is greater than 5 and B is less than 30:
-    Print "Both conditions true".
-
-If A is less than 5 or B is greater than 15:
-    Print "At least one condition true".
-```
+Logic: `If X > 5 and Y < 10:` / `If A or B:` (short-circuit evaluation).
 
 ### Loops
 
 ```
-A Number named Counter exists.
-Counter is 1.
-
+# While loop
 While Counter is less than 5:
-    Print "Count: " followed by Counter.
     Increase Counter by 1.
-```
 
-### For-Range Loops
-
-```
-For every Number from 1 to 5:
+# For-range
+For every Number from 1 to 10:
     Print _index.
+
+# For-each
+For every User in Staff:
+    Print User's name.
 ```
 
 ### Verbs (Functions)
 
 ```
-To Greet a User:
-    Print "Hello, " followed by the User's name.
+To double a Number:
+    Result is Number times 2.
 
-Greet Alice.
+To Greet User:
+    Print "Hello, ${User}".
+
+Greet "Alice".
 ```
 
 ### Reactive Programming (Whenever)
 
-```
-A System named Core exists.
-Core's status is "nominal".
+Works on entity properties AND plain variables:
 
-Whenever Core's status changes:
-    Print "Alert: System status is now " followed by Core's status.
+```
+# Entity property watch
+Whenever Primary's balance changes:
+    Print "Balance changed".
+
+# Plain variable watch
+Whenever X changes:
+    Print "X is now ${X}".
+```
+
+### Timed Blocks
+
+```
+After 5 seconds:
+    Print "Done waiting".
+
+Every 2 seconds:
+    Print "Tick".
 ```
 
 ### Command Substitution (Side-Notes)
@@ -164,21 +193,20 @@ Whenever Core's status changes:
 Print "Status: " followed by (the value for "Overdraft" inside RiskRegistry).
 ```
 
+Verb calls work inside parens: `Shout is (uppercase "hello").`
+
 ### Dynamic Code Execution
 
 ```
-A Command named DynamicAction exists.
-DynamicAction is "Print \"System override activated.\"".
-
 Execute the text inside DynamicAction.
 ```
 
 ### DSL Embedding (Using Blocks)
 
-Embed custom domain-specific languages inside `{ }` blocks:
+Embed custom DSLs inside `{ }` blocks -- raw text passed to a handler verb:
 
 ```
-To ProcessRules a Source:
+To ProcessRules Source:
     Print "Processing:" followed by Source.
 
 Using ProcessRules parse {
@@ -194,7 +222,6 @@ Using ProcessRules parse {
 Execute the shell command "dir".
 
 # Capture output into a variable
-A Text named Listing exists.
 Listing is the output of the shell command "ls -la".
 
 # Pipe between commands
@@ -204,48 +231,38 @@ Run the shell command "cat log.txt" and pipe to "grep ERROR".
 ### Environment Variables
 
 ```
-A Text named Home exists.
 Home is the environment variable "HOME".
-Print "User home: " followed by Home.
 ```
 
 ### HTTP Requests
 
 ```
-A Text named Page exists.
 Page is the fetched content of the url "https://api.example.com/data".
 ```
 
 ### String Manipulation
 
-Built-in verbs for text processing:
-
 ```
-Shout is (uppercase "hello").       # "HELLO"
-Quiet is (lowercase "HELLO").       # "hello"
+Shout is (uppercase "hello").                          # "HELLO"
+Quiet is (lowercase "HELLO").                          # "hello"
 Replaced is (replace in "abc" replace "b" with "x").  # "axc"
-
-# Also available: split, join
 ```
+
+Also available: `split` (into list), `join` (from list).
 
 ### File I/O
 
 ```
 Write "Hello, file!" to the file "output.txt".
-
-A Text named Content exists.
 Read the file "output.txt" into Content.
+Delete the file "output.txt".
+Files is the list of files in ".".
 ```
 
 ### JSON Parsing
 
 ```
-A Text named Raw exists.
-Raw is "{\"name\": \"Alice\", \"age\": 30}".
-
-A Dictionary named Data exists.
-Data is the parsed JSON of Raw.
-
+Data is the parsed JSON of "{\"name\": \"Alice\"}".
 Print the value for "name" inside Data.
 ```
 
@@ -255,8 +272,7 @@ Print the value for "name" inside Data.
 Try:
     Execute the shell command "nonexistent-command".
 Catch the error into ErrMsg:
-    Print "Caught error: " followed by ErrMsg.
-
+    Print "Caught: ${ErrMsg}".
 Print "Program continues after error handling".
 ```
 
@@ -270,8 +286,6 @@ Include "helpers.prose".
 
 ```
 Label "Retry Connection".
-Print "Attempting to reach database..."
-
 If ConnectionStatus is "Failed":
     Jump to the label "Retry Connection".
 ```
@@ -296,23 +310,12 @@ Inside the interactive REPL, use dot-commands:
 
 ```
 src/
-  core/
-    Value.js          Runtime value types
-    Environment.js    Scope/variable management
-    Errors.js         Error types
-    Logger.js         Structured logging
-  lexer/
-    Token.js          Token type definitions
-    Lexer.js          Tokenizer (indentation-aware)
-  parser/
-    AST.js            AST node definitions
-    Parser.js         Pattern-matching recursive descent parser
-  interpreter/
-    Builtins.js       Built-in operations
-    Interpreter.js    Tree-walking evaluator
-  shell/
-    Shell.js          Interactive REPL
-  index.js            Entry point
+  core/         Value, Environment, Errors, Logger
+  lexer/        Token, Lexer (indentation-aware)
+  parser/       AST, Parser (pattern-matching recursive descent)
+  interpreter/  Builtins, Interpreter (tree-walking + goto + reactive)
+  shell/        Shell (interactive REPL)
+  index.js      Entry point
 examples/
   hello.prose         Hello World
   variables.prose     Data types and collections
@@ -321,7 +324,8 @@ examples/
   dsl_shell.prose     DSL blocks and shell commands
   minimal_dsl.prose   Minimal DSL example
   new_features.prose  Arithmetic, comparisons, logic, else-if, file I/O, JSON, try/catch
-  all_new.prose       String interp, env vars, range-for, pipe, fetch, include
+  all_new.prose       String interp, env vars, range-for, pipe shell, fetch, include
+  simplified.prose    Implicit vars, map, filter, sum, extended Whenever, file ops
 ```
 
 ## License

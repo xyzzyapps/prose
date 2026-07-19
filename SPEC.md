@@ -113,15 +113,17 @@ Print the value for "Japan" inside Capitals.
 ### 4.1 Variable Declaration
 
 ```
-A [Type] named [Name] exists.
+A [Type] [named] [Name] exists.
 ```
 
-Creates a variable initialized to the type's default value:
-- `Number` → `0`
-- `Text` → `""`
-- `List` → empty list
-- `Dictionary` → empty dictionary
-- Capitalized types (e.g., `User`, `Account`, `System`) → entity instances
+`named` is optional. Also supports implicit declaration via assignment:
+
+```
+X is 42.         # Auto-creates Number
+Name is "Alice". # Auto-creates Text
+```
+
+Explicit declarations set the type's default value (`Number` → 0, `Text` → "", etc.). Implicit declarations infer the type from the value.
 
 ### 4.2 Assignment
 
@@ -129,6 +131,8 @@ Creates a variable initialized to the type's default value:
 [Name] is [expression].
 [Entity]'s [property] is [expression].
 ```
+
+If the target variable does not exist, it is auto-created with the value's type (implicit declaration).
 
 ### 4.3 Print
 
@@ -394,6 +398,53 @@ Inside double-quoted strings, `${variable}` is replaced with the variable's stri
 | `split` | text, by, delimiter | Splits text into a List |
 | `join` | list, with, delimiter | Joins list items with delimiter |
 | `replace` | in, text, replace, old, with, new | Replaces all occurrences |
+
+### 4.33 Collection Operations (Map, Filter, Sum)
+
+**Map** -- transform every item using a verb:
+```
+Doubled is every item in Numbers transformed by double.
+```
+
+**Filter** -- keep items matching a condition (item bound to `_item`):
+```
+Big is every item in Numbers where _item is greater than 3.
+```
+
+**Sum** -- numeric total of a list:
+```
+Total is the sum of Numbers.
+```
+
+### 4.34 Extended Whenever (Variable Watch)
+
+```
+Whenever [variable] changes:
+    [statements...]
+```
+
+Works on any variable, not just entity properties. Fires on every assignment.
+
+### 4.35 Timed Blocks
+
+```
+After N seconds:
+    [statements...]
+
+Every N seconds:
+    [statements...]
+```
+
+`After` executes once after the delay. `Every` repeats up to 100 iterations. Uses OS `sleep`/`timeout` for blocking delay.
+
+### 4.36 File Operations (Extended)
+
+```
+Delete the file [path].
+Files is the list of files in [dir].
+```
+
+`Delete` removes a file. `the list of files in` returns a List of filenames in a directory.
 
 ---
 
