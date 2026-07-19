@@ -29,6 +29,7 @@ Prose is a practical, declarative, and highly structured programming language de
 | `COLON` | Block opener | `:` |
 | `COMMA` | List separator | `,` |
 | `LPAREN` / `RPAREN` | Side-note delimiters | `(` `)` |
+| `LBRACE` / `RBRACE` | Brace block delimiters | `{` `}` (unused as tokens, braces produce BRACEBLOCK) |
 | `INDENT` / `DEDENT` | Indentation change | (virtual tokens) |
 | `NEWLINE` | Line separator | `\n` |
 | `EOF` | End of file | (virtual token) |
@@ -397,9 +398,9 @@ Inside double-quoted strings, `${variable}` is replaced with the variable's stri
 |------|-----------|-------------|
 | `uppercase` | text | Returns uppercase text |
 | `lowercase` | text | Returns lowercase text |
-| `split` | text, by, delimiter | Splits text into a List |
-| `join` | list, with, delimiter | Joins list items with delimiter |
-| `replace` | in, text, replace, old, with, new | Replaces all occurrences |
+| `split` | text, delimiter | Splits text into a List |
+| `join` | list, delimiter | Joins list items with delimiter |
+| `replace` | text, old, new | Replaces all occurrences of old with new |
 
 ### 4.33 Collection Operations (Map, Filter, Sum)
 
@@ -553,6 +554,7 @@ Source Text → Lexer → Tokens → Parser → AST → Interpreter → Output
 ┌──────────────┐          ┌──────────────┐
 │ shell/       │          │ (file mode)  │
 │  Shell.js    │          │              │
+│  Terminal.js │          │              │
 │  (REPL)      │          │              │
 └──────┬───────┘          └──────┬───────┘
        │                         │
@@ -623,3 +625,86 @@ The parser includes error recovery: if a statement cannot be parsed, it skips to
 ## 10. Example Program
 
 See `examples/bank_simple.prose` for a complete working example demonstrating dictionaries, entities, heredocs, reactive Whenever blocks, and side-note command substitution.
+
+---
+
+## 11. Internal Mechanisms
+
+### 11.1 Goto Implementation
+Goto uses a `GotoSignal` exception. A first pass registers all `Label` positions. During execution, `Jump` throws `GotoSignal(labelName)`. The interpreter's main loop catches it, looks up the label's statement index, and repositions the program counter. This means Goto only works at the top level of a program, not inside nested verb bodies.
+
+### 11.2 Verb Return
+Verb definitions use `ReturnSignal`. When `Result is X.` executes inside a verb, it throws `ReturnSignal(value)`. The verb caller catches this and returns the value. At the top level, `ReturnSignal` is also caught but the value is simply captured (the program does not terminate — only statements inside verbs exit early via `Result`).
+
+### 11.3 Reactive Watchers
+`Whenever` blocks register `ReactiveWatcher` objects in the Environment. When an entity property or variable is modified (via assignment or mutation), watchers are fired synchronously. Watchers execute in a child interpreter sharing the output buffer. Recursion is limited to 100 nested invocations to prevent infinite loops.
+
+### 11.4 Implicit Declaration
+When `X is 42.` is executed and `X` does not exist, the interpreter auto-creates the variable with the value's type (NumberValue, TextValue, ListValue, etc.). Explicit declarations (`A Number X exists.`) set the type's default value (Number → 0, Text → "", etc.).
+
+### 11.5 Parser Error Recovery
+If a statement cannot be parsed (no pattern matches), the parser skips tokens until the next PERIOD and continues. This allows programs with syntax errors to partially execute. Warnings are logged via the Logger.
+
+### 11.6 Side-Note Evaluation
+Parenthesized expressions `( ... )` are parsed by `parseInlineStatement`, which first tries verb call, then print, then assignment, then falls back to expression parsing. The result is wrapped in a `CallExpr('__paren__', ...)` which the interpreter evaluates and converts to text.
+
+### 11.7 String Interpolation Internals
+The lexer's `_readString` detects `${var}` inside double-quoted strings and produces an `INTERPOLATED` token containing a JSON array of segments: `[{t:'text',v:'...'}, {t:'var',n:'Name'}, ...]`. The interpreter resolves variable references at evaluation time.
+
+---
+
+## 12. Project Structure
+
+```
+esh/
+├── src/
+│   ├── index.js              CLI entry point (REPL or file mode)
+│   ├── core/
+│   │   ├── Value.js          Runtime value types (Number, Text, Entity, List, Dictionary, Null, ShellResult)
+│   │   ├── Environment.js    Scope chain, verb/label/watcher registries
+│   │   ├── Errors.js         SyntaxError, RuntimeError, NameError, TypeError
+│   │   └── Logger.js         Structured console logger
+│   ├── lexer/
+│   │   ├── Token.js          Token type constants and Token class
+│   │   └── Lexer.js          Indentation-aware tokenizer (Python-style INDENT/DEDENT)
+│   ├── parser/
+│   │   ├── AST.js            All AST node classes (40+ statement and expression types)
+│   │   └── Parser.js         Pattern-matching recursive descent parser
+│   ├── interpreter/
+│   │   ├── Builtins.js       Built-in verbs (say, greet, add, subtract, uppercase, lowercase, split, join, replace)
+│   │   └── Interpreter.js    Tree-walking evaluator with Goto, Whenever, Try/Catch, shell, file I/O
+│   └── shell/
+│       ├── Terminal.js       UI utilities (chalk, boxen, ora, figlet, gradient-string)
+│       └── Shell.js          Interactive REPL with history, completion, multi-line input
+├── examples/                 Example .prose programs (9 files)
+├── test/                     Test suite (Node.js native test runner)
+├── dist/                     Build output (esh.exe via Bun compile)
+├── package.json              v2.0.0, dependencies, scripts
+├── README.md                 User-facing documentation
+├── SPEC.md                   This specification
+├── TUTORIAL.md               Shell-user-focused tutorial
+└── TODO.md                   Known issues and future work
+```
+
+---
+
+## 13. Build & Run
+
+### Development
+```bash
+npm install          # Install TUI dependencies
+node src/index.js    # Start REPL
+npm test             # Run 16-test suite
+```
+
+### Standalone Executable
+```bash
+npm run build        # Requires Bun: creates dist/esh.exe (~94 MB, zero deps)
+./dist/esh.exe       # Run the compiled binary
+./dist/esh.exe examples/hello.prose
+```
+
+### Dependencies
+- **Runtime (REPL only):** chalk, boxen, ora, figlet, gradient-string
+- **Core interpreter:** Zero external dependencies (Node.js built-ins only)
+- **Build:** Bun ≥1.0 (for `bun build --compile`)
