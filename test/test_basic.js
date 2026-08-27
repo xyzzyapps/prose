@@ -172,9 +172,16 @@ describe('Parser + Interpreter', () => {
 
   it('shell command', () => {
     const { output } = runCode(
-      'Print (backtick "echo esh-shell").\n'
+      'Print `echo esh-shell`.\n'
     );
     assert.match(output, /esh-shell/);
+  });
+
+  it('bare backtick command runs', () => {
+    const { output } = runCode(
+      '`echo bare-ok`.\n'
+    );
+    assert.match(output, /bare-ok/);
   });
 
   it('anaphora it and the number', () => {

@@ -1,8 +1,10 @@
 # Prose Language Specification (SPEC.md)
 
+This document is the **normative** description of Prose for humans and for agents implementing, generating, or reviewing Prose. The tutorial is pedagogical; this spec is complete. If tutorial and spec disagree, the spec wins. The interpreter in `src/` is the reference implementation.
+
 ## 1. Overview
 
-Prose is a practical, declarative, and highly structured programming language designed to make code read like standard English prose. Every valid statement is a complete sentence terminating with a period (`.`). Blocks use indentation-based scoping (Python-style).
+Prose is a practical, declarative, and highly structured programming language designed to make code read like standard English prose. Statements are complete sentences, usually ending with a period (`.`). A newline also ends a statement (so markdown lists need no `.`). Blocks use indentation-based scoping (Python-style).
 
 ### Design Principles
 
@@ -23,18 +25,29 @@ Prose is a practical, declarative, and highly structured programming language de
 | `WORD` | Identifiers and keywords | `Alice`, `Print`, `exists` |
 | `NUMBER` | Integers and decimals | `42`, `3.14` |
 | `TEXT` | Double-quoted strings | `"Hello, World!"` |
+| `COMMAND` | Backtick-quoted OS command | `` `echo hello` `` |
 | `HEREDOC` | Multiline text blocks | (see Heredocs) |
 | `POSSESSIVE` | Possessive marker | `'s` |
 | `PERIOD` | Sentence terminator | `.` |
 | `COLON` | Block opener | `:` |
 | `COMMA` | List separator | `,` |
 | `LPAREN` / `RPAREN` | Side-note delimiters | `(` `)` |
-| `LBRACE` / `RBRACE` | Brace block delimiters | `{` `}` (unused as tokens, braces produce BRACEBLOCK) |
+| `LBRACE` / `RBRACE` | Not emitted; `{...}` becomes `BRACEBLOCK` | |
+| `DOT` | Method-call dot when `.` is immediately followed by a letter | `Client.settle` |
+| `BULLET` | Markdown list marker at line start | `- `, `* `, `+ ` |
 | `INDENT` / `DEDENT` | Indentation change | (virtual tokens) |
-| `NEWLINE` | Line separator | `\n` |
+| `NEWLINE` | End of a source line | `\n` |
 | `EOF` | End of file | (virtual token) |
 | `BRACEBLOCK` | Raw text between `{ }` | DSL content |
 | `INTERPOLATED` | String with `${var}` | `"Hello, ${name}"` |
+
+Keywords and articles match **case-insensitively**. Identifiers keep their spelling for display; lookup is case-insensitive.
+
+### 2.1.1 Statement terminators
+
+A statement ends at the first of: `PERIOD` (`.`), `NEWLINE`, `DEDENT`, `EOF`, or `RPAREN` (inside a side-note). A missing `.` at end of line is valid.
+
+A `.` immediately followed by a letter is `DOT` (method call), not a terminator. `1. Print` (digit, period, space) is a numbered list item. `3.14` is a number.
 
 ### 2.2 Indentation
 
@@ -58,6 +71,23 @@ TERMINATOR
 
 The terminator is a custom word. Content is read verbatim until a line starting with the terminator is found. The header line's `exists as follows until TERM:` is consumed by the lexer, which emits `WORD("exists")` followed by a `HEREDOC` token.
 
+### 2.6 Quotes
+
+| Form | Meaning |
+|------|---------|
+| `"text"` | **String** (Text). Escapes: `\"`, `\\`, `\n`, `\t`, `\r`. Interpolation: `"Hello, ${Name}"`. |
+| `` `command` `` | **Command**. Never a string. As a statement it runs; as an expression it captures stdout. |
+
+Do not put OS commands in double quotes. `"dir"` is the four-character string dir; `` `dir` `` is a shell command.
+
+Command escapes: `` \` ``, `\\`. Commands may not span lines.
+
+### 2.7 Markdown lists
+
+At the start of line content, `- `, `* `, or `+ ` is a `BULLET` and is ignored as a statement prefix.
+
+A line starting with a number then `.` or `:` is a **numbered item**. The number is registered as a goto label (`Jump to the label 1.`).
+
 ---
 
 ## 3. Data Types
@@ -73,7 +103,7 @@ Age is 30.
 
 ### 3.2 Text
 
-String values enclosed in double quotes with escape sequences (`\"`, `\\`, `\n`, `\t`, `\r`). Truthy if non-empty.
+String values. Always written in **double quotes** (`"..."`), never backticks. Escapes: `\"`, `\\`, `\n`, `\t`, `\r`. Truthy if non-empty.
 
 ```
 A Text named Name exists.
@@ -108,6 +138,18 @@ A Dictionary named Capitals exists.
 Inside Capitals, "France" maps to "Paris".
 Print the value for "Japan" inside Capitals.
 ```
+
+A dictionary assigned to a name is registered on the **entity graph** (see 4.32d). Property access (`name of u1`, `u1`'s name) works on both Entity and Dictionary.
+
+### 3.6 Null
+
+The value `nothing`. Falsy. Produced by missing lookups that degrade gracefully (some accessors) and by verbs such as `pop` on an empty list.
+
+### 3.7 ShellResult
+
+Result of running a command as a statement. Fields: `stdout`, `stderr`, `code`. Stringifies to stdout. Truthy iff `code === 0`.
+
+A **backtick expression** (capture) yields **Text** (stdout), not ShellResult.
 
 ---
 
@@ -197,7 +239,11 @@ Return value via `Result is [expression].`
 [VerbName] [arg1] [arg2] ... .
 ```
 
-Arguments are evaluated expressions passed to the verb.
+Arguments are evaluated expressions passed to the verb. Role fillers (`using`, `with`, `into`, `from`, `by`, `as`, `to`, `and`) between arguments are skipped.
+
+Optional method form: `[entity].Verb args` (a `DOT` token). Equivalent to `Verb entity args`. Prefer the sentence form `Settle the Current Client.`
+
+A line that is only `end` is a no-op (optional closer after a block).
 
 ### 4.10 Label and Goto
 
@@ -265,22 +311,26 @@ The `{ }` block content is captured as a BRACEBLOCK token without any Prose pars
 
 ### 4.18 Shell Command Execution
 
+Commands are **backticks** (`` `...` ``). Double quotes are only for strings.
+
 ```
-Execute the shell command [commandExpr].
-Execute the command [commandExpr].
-Run the command [commandExpr].
-system [commandExpr].
+`echo hello`.
+Execute the shell command `dir`.
+Execute the command `echo hello`.
+Run the command `echo hello`.
+Run the shell command `echo hello` and pipe to `findstr hello`.
 ```
 
-Runs the given command in the OS shell (`child_process.spawnSync`, 30-second timeout). Stdout and stderr are printed. The `system` verb returns the exit code. The `shell` verb returns a ShellResult (stdout, stderr, code).
+A bare `` `command`. `` runs the command and prints stdout/stderr. English forms do the same. Timeout is 30 seconds (`child_process.spawnSync`).
 
 ### 4.19 Shell Output Capture
 
-```
-the output of the shell command [commandExpr]
-```
+A backtick expression captures stdout (Unix command substitution):
 
-Expression form that captures the stdout of a shell command as a Text value. Stderr is not captured in expression form.
+```
+Listing is `ls -la`.
+Listing is the output of the shell command `ls -la`.
+```
 
 ### 4.20 Arithmetic Expressions
 
@@ -587,20 +637,37 @@ Files is the list of files in [dir].
 ### 5.1 Literals
 
 - Numbers: `42`, `3.14`
-- Text: `"hello"`
-- Heredocs: (stored as text)
+- Text: `"hello"` (double quotes only)
+- Commands: `` `echo hi` `` (expression = capture stdout as Text; statement = run)
+- Heredocs: stored as Text
+- Dictionary literals: `dictionary of type is "User" and name is "Ada"`
 
-### 5.2 Variable Reference
+### 5.2 Variable Reference and anaphors
 
 ```
 [Name]
+it
+there
+here
+those
+others
+the number
+the nearest number
+the Active Admin
+the Client
+the using number
 ```
+
+See 4.32c. `it's FIELD` is `FIELD of it`.
 
 ### 5.3 Property Access
 
 ```
 [Entity]'s [property]
+[property] of [entity-or-dict]
 ```
+
+Works on Entity and Dictionary. Missing dictionary keys used via `the value for K inside D` return empty text; missing properties via `'s` / `of` raise `NameError`.
 
 ### 5.4 Binary Operations
 
@@ -636,6 +703,14 @@ the value for [key] inside [dictionary]
 
 Returns the value mapped to the key. Returns empty text if not found.
 
+### 5.7 Keep expression
+
+```
+keep [list] where [condition]
+```
+
+Same as the `Keep` statement. Binds `_item`, fills `those` / `others`.
+
 ---
 
 ## 6. Runtime Semantics
@@ -656,12 +731,45 @@ Variables use lexical scoping. Each verb execution creates a child scope. Variab
 - `Number`: non-zero → true
 - `Text`: non-empty → true
 - `List`: non-empty → true
+- `Dictionary`: non-empty → true
 - `Entity`: always true
+- `ShellResult`: exit code 0 → true
 - `Null`/nothing: false
 
 ### 6.4 Reactive Execution
 
-Whenever watchers fire synchronously when an entity property changes. Watchers execute in a child interpreter that shares the output buffer. Watcher recursion is limited to 100 levels.
+Whenever watchers fire synchronously when an entity property **or** watched variable changes. Watchers execute in a child interpreter that shares the output buffer. Watcher recursion is limited to 100 levels.
+
+### 6.5 Discourse (anaphora)
+
+The **root** environment owns a `DiscourseState`:
+
+| Slot | Updated when | Read by |
+|------|----------------|---------|
+| `it` | Last Number, Text, Entity, or Dictionary result; loop/keep item while iterating | `it`, `it's FIELD` |
+| `lastNumber` | A Number is evaluated or assigned | `the number`, `the nearest number` |
+| `those` | A List is mentioned, or `keep` succeeds | `those` |
+| `others` | `keep` drops items | `others` |
+| `there` | File/dir operations; `With TARGET then` | `there` |
+| `here` | (not stored; always `process.cwd()`) | `here` |
+| entity graph | Dictionary or Entity assigned/registered | `the Active Admin`, aliases from `Call` |
+
+Phrase match: every content word in `the W1 W2 …` must equal (case-insensitive) a field **value**, the entity `type`, a registered alias, or the variable name. Among matches, the highest generation wins. Two matches with the same generation → `CoreferenceError`.
+
+`Call TARGET the Alias Phrase` adds that phrase as an alias and binds it as a variable.
+
+Typed verb slots bind `the Type`, optional `the role`, and `the role number` / `the role Type` in the verb scope, and register the argument on the entity graph.
+
+### 6.6 Limits (reference implementation)
+
+| Limit | Value |
+|-------|--------|
+| `While` iterations | 10,000 |
+| `Every` iterations | 100 |
+| Whenever nesting | 100 |
+| Shell command timeout | 30 s |
+| HTTP fetch timeout | 15 s |
+| Division by zero | `RuntimeError` |
 
 ---
 
@@ -735,6 +843,7 @@ Source Text → Lexer → Tokens → Parser → AST → Interpreter → Output
 | `RuntimeError` | Error during program execution |
 | `NameError` | Undefined variable or verb |
 | `TypeError` | Type mismatch (e.g., treating non-entity as entity) |
+| `CoreferenceError` | Anaphor or phrase has no unique referent (`it` with no prior scalar; two equally recent `the Active Admin` matches) |
 
 Errors include line and column information for debugging.
 
@@ -744,12 +853,15 @@ The parser includes error recovery: if a statement cannot be parsed, it skips to
 
 ## 9. Limitations
 
-1. **No user-defined types/blueprints**: Entity blueprints are nominal only
-2. **No first-class boolean type**: Truthiness is implicit (non-zero number, non-empty text)
-3. **No closures in verbs**: Verbs capture their definition environment as closure
-4. **Goto within blocks**: Jump only to top-level labels
-5. **Single-threaded**: No concurrency support
-6. **HTTP fetch via subprocess**: Slower than native HTTP, requires Node.js on PATH
+1. **No user-defined type/blueprint bodies**: `A User named Alice exists` is nominal; fields are ad hoc
+2. **No first-class boolean type**: Comparisons yield Number 1 or 0
+3. **Goto**: Labels are registered on the top-level statement list only. `Jump` inside a verb or indented block cannot target an inner label
+4. **Map stringifies**: `every item in L transformed by V` passes each item as Text to the verb
+5. **Parser recovery**: Unparsed statements skip to the next `.` and continue; programs with syntax errors may still run in part
+6. **Single-threaded**: No concurrency
+7. **HTTP fetch via subprocess**: Requires `node` on PATH; 15 s timeout
+8. **`Every`**: Caps at 100 iterations
+9. **Verb execution**: A nested `Interpreter` is created per call (builtins are re-registered on the child env)
 
 ---
 
@@ -787,13 +899,14 @@ The lexer's `_readString` detects `${var}` inside double-quoted strings and prod
 ## 12. Project Structure
 
 ```
-esh/
+prose/
 ├── src/
 │   ├── index.js              CLI entry point (REPL or file mode)
 │   ├── core/
 │   │   ├── Value.js          Runtime value types (Number, Text, Entity, List, Dictionary, Null, ShellResult)
 │   │   ├── Environment.js    Scope chain, verb/label/watcher registries
-│   │   ├── Errors.js         SyntaxError, RuntimeError, NameError, TypeError
+│   │   ├── Errors.js         SyntaxError, RuntimeError, NameError, TypeError, CoreferenceError
+│   │   ├── Discourse.js      Anaphora and entity-graph state
 │   │   └── Logger.js         Structured console logger
 │   ├── lexer/
 │   │   ├── Token.js          Token type constants and Token class
@@ -802,18 +915,18 @@ esh/
 │   │   ├── AST.js            All AST node classes (40+ statement and expression types)
 │   │   └── Parser.js         Pattern-matching recursive descent parser
 │   ├── interpreter/
-│   │   ├── Builtins.js       Built-in verbs (say, greet, add, subtract, uppercase, lowercase, split, join, replace)
+│   │   ├── Builtins.js       Native verbs (string, list, dict, file tests, shell)
 │   │   └── Interpreter.js    Tree-walking evaluator with Goto, Whenever, Try/Catch, shell, file I/O
 │   └── shell/
 │       ├── Terminal.js       UI utilities (chalk, boxen, ora, figlet, gradient-string)
 │       └── Shell.js          Interactive REPL with history, completion, multi-line input
 ├── examples/                 Example .prose programs (9 files)
 ├── test/                     Test suite (Node.js native test runner)
-├── dist/                     Build output (esh.exe via Bun compile)
+├── dist/                     Build output (prose.exe via Bun compile)
 ├── package.json              v2.0.0, dependencies, scripts
-├── README.md                 User-facing documentation
+├── README.md                 End-user documentation
 ├── SPEC.md                   This specification
-├── TUTORIAL.md               Shell-user-focused tutorial
+├── TUTORIAL.md               Full language tutorial
 └── TODO.md                   Known issues and future work
 ```
 
@@ -830,9 +943,9 @@ npm test             # Run 16-test suite
 
 ### Standalone Executable
 ```bash
-npm run build        # Requires Bun: creates dist/esh.exe (~94 MB, zero deps)
-./dist/esh.exe       # Run the compiled binary
-./dist/esh.exe examples/hello.prose
+npm run build        # Requires Bun: creates dist/prose.exe
+./dist/prose.exe
+./dist/prose.exe examples/hello.prose
 ```
 
 ### Dependencies

@@ -8,9 +8,9 @@ Using TestVerb parse {
     from dsl
 }
 
-Execute the shell command "echo SH_TEST".
+Execute the shell command `echo SH_TEST`.
 
 A Text named X exists.
-X is the output of the shell command "echo captured".
+X is `echo captured`.
 
 Print "X = " followed by X.

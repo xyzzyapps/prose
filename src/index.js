@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * esh - Prose programming language interpreter and interactive shell.
+ * Prose language interpreter and interactive shell.
  *
  * Usage:
- *   esh                    Start interactive REPL
- *   esh <file.prose>       Run a Prose source file
- *   esh --repl             Force REPL mode
- *   esh --run <file.prose> Run a file explicitly
- *   esh --help             Show help
+ *   prose                    Start interactive REPL
+ *   prose <file.prose>       Run a Prose source file
+ *   prose --repl             Force REPL mode
+ *   prose --run <file.prose> Run a file explicitly
+ *   prose --help             Show help
  */
 
 import * as path from 'node:path';
@@ -17,26 +17,26 @@ import { Shell } from './shell/Shell.js';
 
 function printHelp() {
   console.log(`
-Prose Shell (esh) v1.0.0
-A practical, declarative, English-like programming language.
+Prose v2.0
+A programming language that reads like English.
 
 Usage:
-  esh                        Start interactive REPL
-  esh <file.prose>            Run a Prose source file
-  esh --repl                  Force REPL mode
-  esh --run <file.prose>      Run a file explicitly
-  esh --help, -h              Show this help
-  esh --version, -v           Show version
+  prose                        Start interactive REPL
+  prose <file.prose>            Run a Prose source file
+  prose --repl                  Force REPL mode
+  prose --run <file.prose>      Run a file explicitly
+  prose --help, -h              Show this help
+  prose --version, -v           Show version
 
 Examples:
-  esh                        Launch the interactive shell
-  esh examples/hello.prose   Run the hello world example
-  esh examples/bank.prose    Run the bank transaction example
+  prose                        Launch the interactive shell
+  prose examples/hello.prose   Run the hello world example
+  prose examples/bank.prose    Run the bank transaction example
 `);
 }
 
 function printVersion() {
-  console.log('esh v1.0.0');
+  console.log('Prose v2.0.0');
 }
 
 async function main() {

@@ -75,7 +75,7 @@ Delete the file "test_tutorial.txt".
 
 # --- 7. Shell commands ---
 A Text Listing exists.
-Listing is the output of the shell command "echo shell-works".
+Listing is `echo shell-works`.
 Print "Shell: " followed by Listing.
 
 # --- 8. Env vars ---
@@ -85,7 +85,7 @@ Print "Home exists: " followed by "yes".
 
 # --- 9. Try/Catch ---
 Try:
-    Execute the shell command "nonexistent-command-xyz".
+    Execute the shell command `nonexistent-command-xyz`.
 Catch the error into Err:
     Print "Caught error successfully".
 

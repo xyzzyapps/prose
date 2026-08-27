@@ -24,6 +24,7 @@ export const TokenType = {
   // Literals
   NUMBER: 'NUMBER',       // 42, 3.14
   TEXT: 'TEXT',           // "hello"
+  COMMAND: 'COMMAND',     // `echo hello`  (shell command)
   HEREDOC: 'HEREDOC',     // multiline text block
   BRACEBLOCK: 'BRACEBLOCK', // raw text between { } (for DSLs)
   INTERPOLATED: 'INTERPOLATED', // "Hello, ${name}!" with embedded variables

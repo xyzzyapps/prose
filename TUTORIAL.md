@@ -1,320 +1,422 @@
-# esh Tutorial — Prose for Shell Users
+# Prose Tutorial
 
-Welcome to esh. If you know bash, zsh, or PowerShell, you already know the *concepts*.
-Prose just uses English sentences instead of terse symbols.
+Prose programs are English sentences. Most statements end with a period. A newline is enough too (handy for markdown lists). Comments start with `#`. Blocks after a colon are indented.
 
-## Getting Started
-
-```bash
-# Start the REPL
-./dist/esh.exe
-# or: node src/index.js
-```
-
-Prompt:
-```
-esh ~ ›
-```
-
-Type Prose statements ending with `.` and press Enter. `.exit` to quit.
+Start the shell with `node src/index.js`. Run a file with `node src/index.js examples/hello.prose`. Type `.exit` to quit.
 
 ---
 
-## 1. Variables — No More `export` or `$`
+## 1. Quotes
 
-| Shell | Prose |
-|-------|-------|
-| `NAME="Alice"` | `Name is "Alice".` |
-| `AGE=30` | `Age is 30.` |
-| `echo $NAME` | `Print Name.` |
-| `echo "$NAME is $AGE"` | `Print "${Name} is ${Age}".` |
+| Syntax | Meaning |
+|--------|---------|
+| `"Hello"` | String (Text) |
+| `` `echo hello` `` | OS command |
 
-```prose
+```
+Print "Hello".
+`echo hello`.
+Listing is `dir`.
+```
+
+Interpolation only works in strings: `"Hello, ${Name}"`.
+
+---
+
+## 2. Variables and types
+
+Assigning creates the variable. Types: Number, Text, List, Dictionary, and named entities (User, Account, …).
+
+```
+X is 42.
 Name is "Alice".
+A Number named Age exists.
 Age is 30.
-Print "${Name} is ${Age} years old".
+A Text named Warning exists as follows until EndMsg:
+    All actions monitored.
+EndMsg
 ```
 
-**No declaration needed.** The first assignment creates the variable automatically.
+`named` is optional: `A Number Age exists.`
+
+Print:
+
+```
+Print Name.
+Print "Hello, ${Name}! You are ${Age}".
+Print "Hello" followed by " world".
+```
+
+Change numbers:
+
+```
+Increase Age by 1.
+Lower Age by 5.
+Set Age to 21.
+```
 
 ---
 
-## 2. Math — Replace `$((...))` and `expr`
+## 3. Arithmetic and comparisons
 
-| Shell | Prose |
-|-------|-------|
-| `echo $((5 + 3))` | `Print 5 plus 3.` |
-| `echo $((10 - 4))` | `Print 10 minus 4.` |
-
-```prose
-Total is 100 plus 50.          # 150
-Tax is Total times 20 divided by 100.  # 30
-Print "Total: ${Total}, Tax: ${Tax}".
+```
+X is 5 plus 3.
+X is 10 minus 4.
+X is 3 times 7.
+X is 20 divided by 4.
 ```
 
-Mutate in-place: `Increase X by 1.` / `Lower X by 5.`
+Comparisons: `is greater than`, `is less than`, `is equal to`, `is not equal to`, `is greater than or equal to`, `is less than or equal to`. Combine with `and` / `or`.
 
----
-
-## 3. Conditionals — Replace `if [ ... ]; then`
-
-| Shell | Prose |
-|-------|-------|
-| `if [ "$X" -gt 5 ]; then ... fi` | `If X is greater than 5:` |
-| `elif [ "$X" -ge 70 ]; then` | `Otherwise if X is greater than or equal to 70:` |
-| `else` | `Otherwise:` |
-
-```prose
-If Score is greater than or equal to 90:
+```
+If Score is greater than or equal to 80:
     Print "Grade: A".
-Otherwise if Score is greater than or equal to 80:
-    Print "Grade: B".
 Otherwise if Score is greater than or equal to 70:
-    Print "Grade: C".
+    Print "Grade: B".
 Otherwise:
     Print "Grade: F".
-```
 
-Combine with `and` / `or`:
-
-```prose
 If Age is greater than 18 and Score is greater than 60:
     Print "Passed".
 ```
 
-Comparisons: `is greater than`, `is less than`, `is equal to`, `is not equal to`,
-`is greater than or equal to`, `is less than or equal to`.
-
 ---
 
-## 4. Loops — Replace `for`, `while`
+## 4. Loops
 
-| Shell | Prose |
-|-------|-------|
-| `for i in {1..10}; do ... done` | `For every Number from 1 to 10:` |
-| `while [ $X -lt 5 ]; do ... done` | `While X is less than 5:` |
+```
+While Counter is less than 5:
+    Increase Counter by 1.
 
-```prose
-# Range
-For every Number from 1 to 5:
+For every Number from 1 to 10:
     Print _index.
 
-# While
-Counter is 1.
-While Counter is less than 3:
-    Print "While: ${Counter}".
-    Increase Counter by 1.
+For every User in Staff:
+    Print User's name.
 ```
 
 ---
 
-## 5. List Processing — Replace `grep`, `awk`, `sed` loops
+## 5. Entities
 
-```prose
-A List Nums exists.
-Nums contains 10, 20, 30, 40, and 50.
+```
+A User named Alice exists.
+Alice's age is 25.
+Alice's role is "Administrator".
+Print Alice's role.
+```
 
-# Map — like awk '{print $1*2}'
+Declarative query:
+
+```
+Find every User in Staff whose role is "Administrator".
+```
+
+---
+
+## 6. Lists
+
+```
+A List named Scores exists.
+Scores contains 10, 20, and 30.
+
 To double N:
     Result is N times 2.
 
-Doubled is every item in Nums transformed by double.
-Print Doubled.    # [20, 40, 60, 80, 100]
+Doubled is every item in Scores transformed by double.
+Big is every item in Scores where _item is greater than 15.
+Print the sum of Scores.
+```
 
-# Filter — like grep / awk '$1>25'
-Big is every item in Nums where _item is greater than 25.
-Print Big.        # [30, 40, 50]
+Keep splits a list into `those` (kept) and `others` (dropped):
 
-# Sum — like awk '{sum+=$1} END{print sum}'
-Print the sum of Nums.   # 150
+```
+Keep Scores where _item is greater than 15.
+Print those.
+Print others.
+```
+
+Built-in verbs (side-notes in parentheses): `push`, `pop`, `shift`, `unshift`, `sort`, `first`, `last`, `unique`, `slice`, `splice`, `join`, `length`.
+
+```
+Print (push Scores 40).
+Print (sort Scores).
+Print (join Scores ",").
 ```
 
 ---
 
-## 6. String Manipulation — Replace `tr`, `sed`
+## 7. Dictionaries
 
-| Shell | Prose |
-|-------|-------|
-| `echo "$X" \| tr a-z A-Z` | `(uppercase X)` |
-| `echo "$X" \| tr A-Z a-z` | `(lowercase X)` |
-| `echo "$X" \| sed 's/old/new/g'` | `(replace X "old" "new")` |
-
-```prose
-Shout is (uppercase "hello").        # "HELLO"
-Quiet is (lowercase "HELLO").        # "hello"
-Fixed is (replace "a-b-c" "-" "/").  # "a/b/c"
 ```
+A Dictionary named Capitals exists.
+Inside Capitals, "France" maps to "Paris".
+Print the value for "Japan" inside Capitals.
+```
+
+Or a literal:
+
+```
+Set u1 to dictionary of type is "User" and name is "Alice" and balance is 10.
+Print name of u1.
+```
+
+Verbs: `keys`, `values`, `haskey`, `deletekey`, `dictsize`, `merge`.
 
 ---
 
-## 7. File Operations — Replace `cat`, `>`, `rm`, `ls`
+## 8. Strings
 
-| Shell | Prose |
-|-------|-------|
-| `cat file.txt` | `Read the file "file.txt" into Content. Print Content.` |
-| `echo "hi" > file.txt` | `Write "hi" to the file "file.txt".` |
-| `rm file.txt` | `Delete the file "file.txt".` |
-| `ls` | `Files is the list of files in "."` |
+Double quotes only.
 
-```prose
-Write "Hello, world!" to the file "output.txt".
-Read the file "output.txt" into Content.
-Print Content.
-Delete the file "output.txt".
+```
+Shout is (uppercase "hello").
+Quiet is (lowercase "HELLO").
+Part is (substr "abcdef" 1 3).
+Fixed is (replace "a-b-c" "-" "/").
+```
+
+Also: `length`, `split`, `join`, `index`, `rindex`, `chop`, `chomp`, `trim`, `reverse`, `repeat`, `sprintf`, `chr`, `ord`, `startswith`, `endswith`, `contains`.
+
+---
+
+## 9. Files and folders
+
+Paths are strings. Commands stay in backticks.
+
+```
+Write "Hello" to the file "notes.txt".
+Read the file "notes.txt" into Content.
+Append " more" to the file "notes.txt".
+Copy the file "notes.txt" to "copy.txt".
+Rename the file "copy.txt" to "renamed.txt".
+Touch the file "stamp.txt".
+Make the directory "tmp".
+Change directory to "tmp".
+Delete the file "notes.txt".
 Files is the list of files in ".".
 ```
 
----
+Tests: `fileexists`, `isfile`, `isdir`, `isreadable`, `iswritable`, `isexecutable`, `filesize`, `isemptyfile`. Also `cat`, `glob`, `which`, `pwd`, `chdir`, `chmod`, `basename`, `dirname`.
 
-## 8. Running Commands — Replace Backticks and `$()`
+`there` is the last file or folder mentioned. `here` is the current folder.
 
-| Shell | Prose |
-|-------|-------|
-| `` `ls -la` `` | `the output of the shell command "ls -la"` |
-| `ls \| grep txt` | `Run the shell command "ls" and pipe to "grep txt".` |
+```
+Write "z" to the file "notes.txt".
+Print (cat there).
+```
 
-```prose
-# Capture
-Listing is the output of the shell command "ls -la".
-Print Listing.
+`With` sets `there` for a block:
 
-# Execute (no capture)
-Execute the shell command "mkdir -p mydir".
-
-# Pipe
-Run the shell command "cat log.txt" and pipe to "grep ERROR".
+```
+With "notes.txt" then:
+    Read the file there into Content.
 ```
 
 ---
 
-## 9. Environment Variables — Replace `$HOME`
+## 10. Shell commands
 
-```prose
+Backticks. Never double quotes.
+
+```
+`echo hello`.
+Execute the shell command `dir`.
+Run the command `echo hello`.
+Run the shell command `echo hello` and pipe to `findstr hello`.
+
+Listing is `dir`.
+Listing is the output of the shell command `dir`.
+```
+
+Environment and HTTP:
+
+```
 Home is the environment variable "HOME".
-Print "Home: ${Home}".
+Page is the fetched content of the url "https://example.com".
 ```
 
 ---
 
-## 10. JSON / APIs — Replace `jq`, `curl | jq`
+## 11. Verbs
 
-```prose
-Raw is the fetched content of the url "https://api.github.com/repos/torvalds/linux".
-Data is the parsed JSON of Raw.
-Print the value for "full_name" inside Data.
 ```
-
----
-
-## 11. Functions (Verbs) — Replace `function name() { }`
-
-```prose
 To double N:
     Result is N times 2.
 
-To Greet Name:
-    Print "Hello, ${Name}!".
+To Greet Person:
+    Print "Hello, ${Person}".
 
-Greet "Alice".           # Hello, Alice!
-Print (double 21).       # 42
+Greet "Ada".
+Print (double 21).
+```
+
+**Typed verbs.** The word after `a`/`an` is a type. Inside the body, `the Client` is that entity.
+
+```
+To Settle a Client:
+    Set the Client's balanceDue to 0.
+    Print "Settled " followed by the Client's name.
+
+Settle the Current Client.
+```
+
+Roles: `To Charge a Client using an Amount:`. Inside: `the Amount`, `the using number`. At the call, `using` / `with` / `into` / `from` / `by` / `as` / `to` / `and` may be written or left out.
+
+`Charge the Current Client using 50.`
+
+Parentheses are side-notes: they run a verb or expression and use the result.
+
+---
+
+## 12. Anaphora (pointing words)
+
+| Word | Means |
+|------|--------|
+| `it` | Last scalar, or the current keep/loop item |
+| `it's FIELD` | That field of `it` |
+| `there` | Last file or folder, or `With` target |
+| `here` | Current folder |
+| `those` | Last list, or what `keep` kept |
+| `others` | What `keep` dropped |
+| `the number` | Last number |
+| `the User` | Last entity of that type |
+
+```
+X is 42.
+Print it.
+Print the number.
+Print here.
 ```
 
 ---
 
-## 12. Error Handling — Replace `||`, `trap`
+## 13. Entity graph
 
-```prose
+A dictionary assigned to a name is an entity. `the Active Admin` finds the most recent dictionary whose fields include those words (`status` is Active, `role` is Admin, or `type` is Admin). Two equally recent matches are a coreference error.
+
+```
+Set u1 to dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balance is 10.
+Print name of the Active Admin.
+Call the Active Admin the Current Client.
+Set the Current Client's balance to 250.
+Print balance of u1.
+```
+
+`Call it the Current Client.` names the same entity.
+
+---
+
+## 14. Control: labels, lists, include, dynamic code
+
+```
+Label "Retry".
+Jump to the label "Retry".
+```
+
+Numbered markdown items are labels. Periods optional on list lines:
+
+```
+1. Print "one"
+2. Print "two"
+Jump to the label 1.
+```
+
+Bullets `-`, `*`, `+` work the same way (no auto label).
+
+```
+Include "helpers.prose".
+
+Snippet is "Print 1.".
+Execute the text inside Snippet.
+```
+
+JSON:
+
+```
+Data is the parsed JSON of "{\"name\": \"Ada\"}".
+Print the value for "name" inside Data.
+```
+
+Errors:
+
+```
 Try:
-    Execute the shell command "risky-command".
+    Execute the shell command `no-such-command`.
 Catch the error into Err:
-    Print "Failed: ${Err}".
-Print "Continues anyway".
+    Print "Caught: ${Err}".
 ```
 
 ---
 
-## 13. Scripting — Replace `.sh` with `.prose`
+## 15. Whenever, timing, DSL
 
-**Shell:**
-```bash
-#!/bin/bash
-DATE=$(date +%Y-%m-%d)
-mkdir -p backups
-cp *.txt "backups/$DATE/"
-echo "Backed up to backups/$DATE"
+```
+Whenever Primary's balance changes:
+    Print "Balance changed".
+
+Whenever X changes:
+    Print "X is now ${X}".
+
+After 5 seconds:
+    Print "Done".
+
+Every 2 seconds:
+    Print "Tick".
 ```
 
-**Prose:**
-```prose
-Today is the output of the shell command "date +%Y-%m-%d".
-Execute the shell command "mkdir -p backups".
-Run the shell command "cp *.txt backups/${Today}".
-Print "Backed up to backups/${Today}".
+Raw text for another verb:
+
 ```
+To ProcessRules Source:
+    Print Source.
 
-Run: `./dist/esh.exe backup.prose`
-
----
-
-## 14. Reactive Automation — Replace `watch`, `cron`
-
-```prose
-# Every N seconds
-Every 5 seconds:
-    Execute the shell command "df -h".
-
-# One-shot delay
-After 10 seconds:
-    Print "Done waiting".
-
-# React to changes
-Whenever Status changes:
-    Print "Status is now ${Status}".
+Using ProcessRules parse {
+    build: main.o
+        gcc -o build main.o
+}
 ```
 
 ---
 
-## Quick Reference Card
+## 16. Interactive shell
 
-| Task | Bash | Prose |
-|------|------|-------|
-| Set variable | `X=42` | `X is 42.` |
-| Print | `echo $X` | `Print X.` |
-| Interpolate | `"$X $Y"` | `"${X} ${Y}"` |
-| If | `if [ $X -gt 5 ]` | `If X is greater than 5:` |
-| Else-if | `elif` | `Otherwise if X:` |
-| Loop 1..10 | `for i in {1..10}` | `For every Number from 1 to 10:` |
-| While | `while [ $X -lt 5 ]` | `While X is less than 5:` |
-| Math | `$((a + b))` | `A plus B` |
-| Uppercase | `tr a-z A-Z` | `(uppercase X)` |
-| Replace | `sed s/old/new/` | `(replace X "old" "new")` |
-| Map list | awk loop | `every item in List transformed by V` |
-| Filter list | grep loop | `every item in List where cond` |
-| Sum list | awk '{s+=$1}END{print s}' | `the sum of List` |
-| Read file | `cat f.txt` | `Read the file "f.txt" into C.` |
-| Write file | `echo hi > f.txt` | `Write "hi" to the file "f.txt".` |
-| Delete file | `rm f.txt` | `Delete the file "f.txt".` |
-| List files | `ls` | `the list of files in "."` |
-| Run command | `` `cmd` `` | `the output of the shell command "cmd"` |
-| Pipe | `a \| b` | `Run the shell command "a" and pipe to "b".` |
-| Env var | `$HOME` | `the environment variable "HOME"` |
-| JSON parse | `jq .key` | `the parsed JSON of ... \| value for "key"` |
-| Function | `f() { ... }` | `To f P: ...` |
-| Try/catch | `cmd \|\| echo err` | `Try: ... Catch the error into E:` |
-| Sleep | `sleep 5` | `After 5 seconds:` |
-| Interval | `watch -n 5` | `Every 5 seconds:` |
-| Module | `source` | `Include "file.prose".` |
-| DSL embed | heredoc | `Using H parse { ... }` |
+| Command | What it does |
+|---------|----------------|
+| `.help` | Help |
+| `.exit` / `.quit` | Leave |
+| `.run <file>` | Run a file in a fresh environment |
+| `.load <file>` | Run a file in the current environment |
+| `.vars` | Variables |
+| `.verbs` | Verbs |
+| `.reset` | Clear the session |
+| `.clear` | Clear the screen |
+| `.pwd` | Working directory |
+
+Tab completes. Up/down is history. A blank line ends a multi-line block.
 
 ---
 
-## Tips
+## Quick reference
 
-- **Every statement ends with `.`** — #1 gotcha for shell users.
-- **No `$` for variables** — `X` not `$X` (except inside `${...}` in strings).
-- **Colon starts a block** — `If X:` not `if X; then`.
-- **Indentation matters** — 4 spaces (or tab) for block bodies.
-- **`.help`** in REPL shows all commands. **`Tab`** completes keywords.
-- **Comments** start with `#`, same as shell.
-- **Implicit declaration** — just assign, no `declare`/`export`/`local` needed.
-- **Verbs return values** — `(verb args)` in side-notes captures the result.
+| You want | Write |
+|----------|--------|
+| String | `"Hello"` |
+| Command | `` `echo hello` `` |
+| Variable | `Name is "Ada".` |
+| Print | `Print Name.` |
+| Interpolate | `"${Name}"` |
+| Math | `X is 5 plus 3.` |
+| If / else | `If X is greater than 5:` … `Otherwise:` |
+| While | `While X is less than 5:` |
+| Count | `For every Number from 1 to 10:` |
+| Verb | `To Greet Person:` … `Greet "Ada".` |
+| Typed verb | `To Settle a Client:` … `Settle the Current Client.` |
+| List | `Scores contains 1, 2, and 3.` |
+| Keep | `Keep Scores where _item is greater than 1.` |
+| File | `Write "hi" to the file "f.txt".` |
+| Capture command | `` Out is `dir`. `` |
+| Last value | `Print it.` |
+| Last file | `Print there.` |
+| Entity by fields | `Print name of the Active Admin.` |
+| Include | `Include "lib.prose".` |

@@ -17,7 +17,7 @@ import * as path from 'node:path';
  * @param {import('../core/Environment.js').Environment} env
  * @param {import('./Interpreter.js').Interpreter} interpreter
  */
-export function registerBuiltins(env, interpreter) {
+export function registerBuiltins(env, _interpreter) {
   const verb = (name, params, execute) => {
     env.defineVerb(name, {
       name,

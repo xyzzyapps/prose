@@ -365,7 +365,7 @@ export class UsingStmt extends Stmt {
 }
 
 /**
- * `Execute the shell command "cmd".` - run an OS command.
+ * `` Execute the shell command `cmd`. `` - run an OS command.
  */
 export class ShellStmt extends Stmt {
   /**
@@ -381,7 +381,7 @@ export class ShellStmt extends Stmt {
 }
 
 /**
- * `the output of the shell command "cmd"` - captures stdout of a command.
+ * `` `cmd` `` or `` the output of the shell command `cmd` `` — capture stdout.
  */
 export class ShellExpr extends Expr {
   /**

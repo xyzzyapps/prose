@@ -1,17 +1,17 @@
 {
-  "name": "esh",
+  "name": "prose",
   "version": "2.0.0",
-  "description": "Prose programming language interpreter with modern terminal UI",
+  "description": "Prose programming language — code that reads like English",
   "main": "src/index.js",
   "bin": {
-    "esh": "./src/index.js"
+    "prose": "./src/index.js"
   },
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
     "repl": "node src/index.js --repl",
     "run": "node src/index.js --run",
-    "build": "bun build --compile src/index.js --outfile dist/esh.exe",
+    "build": "bun build --compile src/index.js --outfile dist/prose.exe",
     "test": "node --test test/test_*.js"
   },
   "keywords": [

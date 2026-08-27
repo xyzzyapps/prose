@@ -30,7 +30,7 @@ import {
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from '../parser/AST.js';
 import {
-  Value, NumberValue, TextValue, EntityValue,
+  NumberValue, TextValue, EntityValue,
   ListValue, DictionaryValue, NULL, ReactiveWatcher,
   ShellResultValue,
 } from '../core/Value.js';
@@ -38,7 +38,7 @@ import { Environment, VerbDefinition as VerbDef } from '../core/Environment.js';
 import { ProseError, RuntimeError, NameError, TypeError, CoreferenceError } from '../core/Errors.js';
 import { ANAPHORS, getProperty, setProperty } from '../core/Discourse.js';
 import { Logger } from '../core/Logger.js';
-import { registerBuiltins, valueToNumber, valueToString } from './Builtins.js';
+import { registerBuiltins } from './Builtins.js';
 import { Lexer } from '../lexer/Lexer.js';
 import { Parser } from '../parser/Parser.js';
 import * as child_process from 'node:child_process';
@@ -333,12 +333,6 @@ export class Interpreter {
       case 'not_equal_to':
         return new NumberValue(this.stringify(left) !== this.stringify(right) ? 1 : 0);
 
-      case 'greater_equal':
-        return new NumberValue(this.toNumber(left) >= this.toNumber(right) ? 1 : 0);
-
-      case 'less_equal':
-        return new NumberValue(this.toNumber(left) <= this.toNumber(right) ? 1 : 0);
-
       case 'plus':
         return new NumberValue(this.toNumber(left) + this.toNumber(right));
 
@@ -348,17 +342,13 @@ export class Interpreter {
       case 'times':
         return new NumberValue(this.toNumber(left) * this.toNumber(right));
 
-      case 'divided_by':
-        return new NumberValue(this.toNumber(left) / this.toNumber(right));
-
-      case 'plus':
-        return new NumberValue(this.toNumber(left) + this.toNumber(right));
-
-      case 'minus':
-        return new NumberValue(this.toNumber(left) - this.toNumber(right));
-
-      case 'times':
-        return new NumberValue(this.toNumber(left) * this.toNumber(right));
+      case 'divided_by': {
+        const den = this.toNumber(right);
+        if (den === 0) {
+          throw new RuntimeError('Division by zero', expr.line, expr.column);
+        }
+        return new NumberValue(this.toNumber(left) / den);
+      }
 
       default:
         throw new RuntimeError(

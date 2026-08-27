@@ -27,7 +27,7 @@ For every Number from 1 to 5:
     Print _index.
 
 # --- Pipe Shell ---
-Run the shell command "echo hello" and pipe to "findstr hello".
+Run the shell command `echo hello` and pipe to `findstr hello`.
 
 # --- Include ---
 Include "examples/hello.prose".

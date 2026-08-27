@@ -148,6 +148,12 @@ export class Lexer {
         continue;
       }
 
+      // Backtick-quoted shell command: `echo hello`
+      if (this.source[this.pos] === '`') {
+        this._readCommand();
+        continue;
+      }
+
       // Parentheses
       if (this.source[this.pos] === '(') {
         this._advance();
@@ -348,6 +354,35 @@ export class Lexer {
       return 0; // blank line
     }
     return spaces;
+  }
+
+  /** Backtick-quoted OS command. Escapes: \` \\ */
+  _readCommand() {
+    const startLine = this.line;
+    const startCol = this.column;
+    this._advance(); // skip opening `
+    let value = '';
+    while (this.pos < this.source.length) {
+      const ch = this.source[this.pos];
+      if (ch === '`') {
+        this._advance();
+        this._emit(TokenType.COMMAND, value, startLine, startCol);
+        return;
+      }
+      if (this._isNewline(ch)) {
+        throw new SyntaxError('Unterminated command (`)', startLine, startCol);
+      }
+      if (ch === '\\' && this.pos + 1 < this.source.length) {
+        this._advance();
+        const escaped = this.source[this.pos];
+        value += escaped === '`' || escaped === '\\' ? escaped : '\\' + escaped;
+        this._advance();
+        continue;
+      }
+      value += ch;
+      this._advance();
+    }
+    throw new SyntaxError('Unterminated command (`)', startLine, startCol);
   }
 
   _readString() {

@@ -1,5 +1,5 @@
 /**
- * shell/Terminal.js - Modern terminal UI utilities for esh.
+ * shell/Terminal.js - Modern terminal UI utilities for Prose.
  *
  * Provides styled prompts, banners, boxes, spinners, and output formatting
  * inspired by modern AI coding agents (Claude Code, OpenCode, etc.).
@@ -18,23 +18,11 @@ import * as os from 'node:os';
 // Banner
 // ---------------------------------------------------------------------------
 
-const BANNER_ART = `
-▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-██▀▀▀▀▀▀▀██▀▀▀▀▀██▀▀▀▀▀▀▀▀██▀▀▀▀██▀▀▀▀▀▀▀▀▀██▀▀▀▀▀▀██
-██  ▄▄▄  ██  ██  ██  ██  ██  ██  ██  ██  ██  ██  ██
-██  ▀▀▀  ██  ▀▀▀▀██  ▀▀▀▀▀▀██  █████  ▀▀▀▀▀▀██  ▀▀▀▀██
-██       ██      ██  ████████  ██  ██  ████████  ██████
-██  ▄▄▄▄▄▄██  ▄▄▄▄██        ██  ██  ██        ██  ▄▄▄▄██
-██  ████████  ██  ██  ▄▄▄▄▄▄██  ██  ██  ▄▄▄▄▄▄██  ██  ██
-██  ▀▀▀▀▀▀██  ▀▀▀▀██  ██████▀▀▀▀██  ██████▀▀▀▀▀▀▀▀▀▀██
-██▄▄▄▄▄▄▄▄██▄▄▄▄▄▄██▄▄▄▄▄▄▄▄▄▄██▄▄▄▄▄▄▄▄▄▄▄▄██▄▄▄▄▄▄██
-▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀`;
-
 export function showBanner() {
   const termWidth = process.stdout.columns || 80;
 
   // Render figlet title
-  const figletText = figlet.textSync('  esh', {
+  const figletText = figlet.textSync('  prose', {
     font: 'Standard',
     horizontalLayout: 'default',
   });
@@ -44,7 +32,7 @@ export function showBanner() {
   const subtitle = gradient(['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff8b94']);
 
   const box = boxen(
-    `${title}\n${chalk.dim('Prose Language Shell  v2.0')}\n${subtitle('Code that reads like English.')}\n\n${chalk.dim('• Type prose statements directly')}\n${chalk.dim('• .help for commands  •  .exit to quit')}\n${chalk.dim('• Ctrl+C to cancel  •  Lines ending with : enter multi-line mode')}`,
+    `${title}\n${chalk.dim('Prose  v2.0')}\n${subtitle('Code that reads like English.')}\n\n${chalk.dim('• Type Prose statements directly')}\n${chalk.dim('• .help for commands  •  .exit to quit')}\n${chalk.dim('• Ctrl+C to cancel  •  Lines ending with : enter multi-line mode')}`,
     {
       padding: { top: 0, bottom: 1, left: 3, right: 3 },
       margin: { top: 1, bottom: 1 },
@@ -67,7 +55,7 @@ export function makePrompt() {
   const displayPath = cwd.startsWith(home) ? '~' + cwd.slice(home.length) : cwd;
   const dirName = path.basename(displayPath) || displayPath;
 
-  return `${chalk.hex('#6c5ce7').bold('esh')} ${chalk.dim(displayPath)} ${chalk.hex('#a29bfe')('›')} `;
+  return `${chalk.hex('#6c5ce7').bold('prose')} ${chalk.dim(displayPath)} ${chalk.hex('#a29bfe')('›')} `;
 }
 
 export function makeContPrompt(indent = 0) {

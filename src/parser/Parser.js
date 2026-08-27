@@ -208,6 +208,7 @@ export class Parser {
     // Try each statement pattern in order
     const patterns = [
       () => this._parseNumberedItem(),
+      () => this._parseBareCommand(),
       () => this._parseNopEnd(),
       () => this._parseAliasCall(),
       () => this._parseKeepStmt(),
@@ -534,7 +535,27 @@ export class Parser {
     );
   }
 
-  /** `Execute the shell command "..."` or `Execute the command "..."` */
+  /** Command text: `` `echo hi` `` or a normal expression. */
+  _parseCommandArg() {
+    if (this._check(TokenType.COMMAND)) {
+      const tok = this._advance();
+      return new LiteralExpr('text', tok.value, tok.line, tok.column);
+    }
+    return this.parseExpression();
+  }
+
+  /** Standalone `` `echo hello`. `` — run and print. */
+  _parseBareCommand() {
+    if (!this._check(TokenType.COMMAND)) return null;
+    const tok = this._advance();
+    this._expectEnd();
+    return new ShellStmt(
+      new LiteralExpr('text', tok.value, tok.line, tok.column),
+      tok.line, tok.column
+    );
+  }
+
+  /** `Execute the shell command `dir`` or `Execute the command "..."` */
   _parseShellStmt() {
     this._skipNoise();
     const execTok = this._match(TokenType.WORD, 'execute');
@@ -545,13 +566,13 @@ export class Parser {
     this._match(TokenType.WORD, 'shell');
     this._expect(TokenType.WORD, 'command');
 
-    const cmdExpr = this.parseExpression();
+    const cmdExpr = this._parseCommandArg();
     this._expectEnd();
 
     return new ShellStmt(cmdExpr, execTok.line, execTok.column);
   }
 
-  /** `Run the command "...".` (no pipe) */
+  /** `Run the command `echo hello`.` (no pipe) */
   _parseRunCommand() {
     this._skipNoise();
     const runTok = this._match(TokenType.WORD, 'run');
@@ -560,7 +581,7 @@ export class Parser {
     this._match(TokenType.WORD, 'the');
     this._match(TokenType.WORD, 'shell');
     if (!this._match(TokenType.WORD, 'command')) return null;
-    const cmdExpr = this.parseExpression();
+    const cmdExpr = this._parseCommandArg();
     this._expectEnd();
     return new ShellStmt(cmdExpr, runTok.line, runTok.column);
   }
@@ -574,14 +595,14 @@ export class Parser {
     this._match(TokenType.WORD, 'the');
     this._match(TokenType.WORD, 'shell');
     this._expect(TokenType.WORD, 'command');
-    const cmd1 = this._parsePrimary(); // Don't use parseExpression (avoids "and" as logical op)
+    const cmd1 = this._check(TokenType.COMMAND) ? this._parseCommandArg() : this._parsePrimary();
     this._skipNoise();
     this._expect(TokenType.WORD, 'and');
     this._skipNoise();
     this._match(TokenType.WORD, 'pipe');
     this._skipNoise();
     this._match(TokenType.WORD, 'to');
-    const cmd2 = this._parsePrimary();
+    const cmd2 = this._check(TokenType.COMMAND) ? this._parseCommandArg() : this._parsePrimary();
     this._expectEnd();
     return new PipeShellStmt(cmd1, cmd2, runTok.line, runTok.column);
   }
@@ -1523,6 +1544,13 @@ export class Parser {
       return new LiteralExpr('text', tok.value, tok.line, tok.column);
     }
 
+    // `` `command` `` — capture stdout (Unix command substitution)
+    if (tok.type === TokenType.COMMAND) {
+      this._advance();
+      const lit = new LiteralExpr('text', tok.value, tok.line, tok.column);
+      return new ShellExpr(lit, tok.line, tok.column);
+    }
+
     // HEREDOC literal
     if (tok.type === TokenType.HEREDOC) {
       this._advance();
@@ -1616,7 +1644,7 @@ export class Parser {
           this._match(TokenType.WORD, 'shell');
           this._expect(TokenType.WORD, 'command');
 
-          const cmdExpr = this.parseExpression();
+          const cmdExpr = this._parseCommandArg();
           return new ShellExpr(cmdExpr, tok.line, tok.column);
         }
         // Not a shell expression, backtrack

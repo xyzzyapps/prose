@@ -26,5 +26,5 @@ Print (fileexists "_esh_tmp.txt").
 Print (isfile "_esh_tmp.txt").
 Delete the file "_esh_tmp.txt".
 
-Out is (backtick "echo shell-ok").
+Out is `echo shell-ok`.
 Print Out.

@@ -20,14 +20,14 @@ Using ProcessRules parse {
 # --- Shell Command Execution ---
 
 # Execute a shell command (output goes to stdout).
-Execute the shell command "echo Hello from the OS shell!".
+Execute the shell command `echo Hello from the OS shell!`.
 
 # Execute another command.
-Execute the shell command "node --version".
+Execute the shell command `node --version`.
 
 # --- Capturing Shell Output ---
 
 A Text named SystemInfo exists.
-SystemInfo is the output of the shell command "echo Prose-OS-Integration".
+SystemInfo is `echo Prose-OS-Integration`.
 
 Print "Captured output:" followed by SystemInfo.

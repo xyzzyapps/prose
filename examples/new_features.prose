@@ -68,7 +68,7 @@ Print "JSON name: " followed by (the value for "name" inside Parsed).
 
 # --- Try/Catch ---
 Try:
-    Execute the shell command "nonexistent-command-xyz".
+    Execute the shell command `nonexistent-command-xyz`.
 Catch the error into ErrMsg:
     Print "Caught error: " followed by ErrMsg.
 

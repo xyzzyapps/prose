@@ -7,12 +7,10 @@
  *
  * Also manages:
  *   - Verb (function) definitions keyed by verb name
- *   - Label definitions for Goto
  *   - Reactive watchers registered by Whenever
+ *   - Discourse / anaphora state (root environment)
  */
 
-import { ReactiveWatcher } from './Value.js';
-import { ProseError } from './Errors.js';
 import { DiscourseState } from './Discourse.js';
 
 export class Environment {
@@ -23,9 +21,7 @@ export class Environment {
     this.variables = new Map();
     /** @type {Map<string, VerbDefinition>} */
     this.verbs = new Map();
-    /** @type {Map<string, number>} label -> program counter / statement index */
-    this.labels = new Map();
-    /** @type {ReactiveWatcher[]} */
+    /** @type {import('./Value.js').ReactiveWatcher[]} */
     this.watchers = [];
     /** @type {DiscourseState|null} owned by the root environment */
     this.discourse = parent ? null : new DiscourseState();
@@ -109,30 +105,6 @@ export class Environment {
     if (this.verbs.has(key)) return this.verbs.get(key);
     if (this.parent) return this.parent.lookupVerb(verbName);
     return null;
-  }
-
-  // -----------------------------------------------------------------------
-  // Labels (for Goto)
-  // -----------------------------------------------------------------------
-
-  /**
-   * Register a label with a program counter index.
-   * @param {string} name
-   * @param {number} stmtIndex
-   */
-  defineLabel(name, stmtIndex) {
-    this.labels.set(name, stmtIndex);
-  }
-
-  /**
-   * Look up a label's statement index.
-   * @param {string} name
-   * @returns {number} statement index, or -1 if not found
-   */
-  lookupLabel(name) {
-    if (this.labels.has(name)) return this.labels.get(name);
-    if (this.parent) return this.parent.lookupLabel(name);
-    return -1;
   }
 
   // -----------------------------------------------------------------------
