@@ -1,5 +1,7 @@
 # Prose
 
+[![Built with Grok](https://img.shields.io/badge/Built_with-Grok-000000?style=flat&logo=xai&logoColor=white)](https://grok.com)
+
 A programming language that reads like English. Statements are sentences. Blocks are indented. Files end in `.prose`.
 
 ```
