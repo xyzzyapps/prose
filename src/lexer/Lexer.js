@@ -99,12 +99,26 @@ export class Lexer {
     }
 
     // Tokenize tokens on this line
+    let atLineContentStart = true;
     while (this.pos < this.source.length && !this._isNewline(this.source[this.pos])) {
       // Skip whitespace (spaces/tabs within a line, not at start)
       if (this.source[this.pos] === ' ' || this.source[this.pos] === '\t') {
         this._advance();
         continue;
       }
+
+      // Markdown bullets at the start of line content: - * +
+      if (atLineContentStart &&
+          (this.source[this.pos] === '-' || this.source[this.pos] === '*' || this.source[this.pos] === '+')) {
+        const next = this.source[this.pos + 1];
+        if (next === ' ' || next === '\t') {
+          this._advance(); // marker
+          this._emit(TokenType.BULLET, '-');
+          atLineContentStart = false;
+          continue;
+        }
+      }
+      atLineContentStart = false;
 
       // Skip comments (# to end of line)
       if (this.source[this.pos] === '#') {
@@ -160,8 +174,14 @@ export class Lexer {
         continue;
       }
 
-      // Period (sentence terminator)
+      // Period: method call if immediately followed by a letter; else sentence end
       if (this.source[this.pos] === '.') {
+        const next = this.pos + 1 < this.source.length ? this.source[this.pos + 1] : '';
+        if (next && this._isWordStart(next)) {
+          this._advance();
+          this._emit(TokenType.DOT, '.');
+          continue;
+        }
         this._advance();
         this._emit(TokenType.PERIOD, '.');
         this.pendingNewline = true;
@@ -294,12 +314,11 @@ export class Lexer {
       );
     }
 
-    // End of line reached, emit NEWLINE if needed
+    // End of line reached — always emit NEWLINE so period-less markdown lists
+    // and English sentences terminate.
     if (this.pos >= this.source.length || this._isNewline(this.source[this.pos])) {
-      if (this.pendingNewline) {
-        this._emit(TokenType.NEWLINE, '\n');
-        this.pendingNewline = false;
-      }
+      this._emit(TokenType.NEWLINE, '\n');
+      this.pendingNewline = false;
       if (this.pos < this.source.length) {
         this._advanceLine();
         this.startOfLine = true;

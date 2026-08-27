@@ -141,6 +141,95 @@ describe('Parser + Interpreter', () => {
     );
     assert.equal(interpreter.env.lookup('X').value, 15);
   });
+
+  it('string builtins', () => {
+    const { output } = runCode(
+      'Print (uppercase "hi").\nPrint (length "hello").\nPrint (substr "abcdef" 1 3).\n'
+    );
+    assert.equal(output, 'HI\n5\nbcd');
+  });
+
+  it('list builtins', () => {
+    const { output } = runCode(
+      'A List named L exists.\nL contains "b", "a", and "c".\nPrint (join (sort L) ",").\nPrint (first L).\n'
+    );
+    assert.equal(output, 'a,b,c\nb');
+  });
+
+  it('dictionary builtins', () => {
+    const { output } = runCode(
+      'A Dictionary named D exists.\nInside D, "k" maps to "v".\nPrint (haskey D "k").\nPrint (dictsize D).\n'
+    );
+    assert.equal(output, '1\n1');
+  });
+
+  it('file builtins', () => {
+    const { output } = runCode(
+      'Write "xyz" to the file "_t_esh.txt".\nPrint (fileexists "_t_esh.txt").\nPrint (cat "_t_esh.txt").\nDelete the file "_t_esh.txt".\n'
+    );
+    assert.equal(output, '1\nxyz');
+  });
+
+  it('shell command', () => {
+    const { output } = runCode(
+      'Print (backtick "echo esh-shell").\n'
+    );
+    assert.match(output, /esh-shell/);
+  });
+
+  it('anaphora it and the number', () => {
+    const { output } = runCode(
+      'X is 42\nPrint it\nPrint the number\n'
+    );
+    assert.equal(output, '42\n42');
+  });
+
+  it('keep those and others', () => {
+    const { output } = runCode(
+      'A List named N exists.\nN contains 1, 2, and 3.\nKeep N where _item is greater than 1.\nPrint those.\nPrint others.\n'
+    );
+    assert.equal(output, '[2, 3]\n[1]');
+  });
+
+  it('here is the current folder', () => {
+    const { output } = runCode('Print here.\n');
+    assert.ok(output.length > 0);
+  });
+
+  it('markdown numbered list is a goto label', () => {
+    const { output } = runCode(
+      'A Number named C exists.\nC is 0.\n1. Increase C by 1.\nIf C is less than 2:\n    Jump to the label 1.\nPrint C.\n'
+    );
+    assert.equal(output, '2');
+  });
+
+  it('entity graph the Active Admin', () => {
+    const { output } = runCode(
+      'set u1 to dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balance is 10\nPrint name of the Active Admin\ncall the Active Admin the Current Client\nset the Current Client\'s balance to 250\nPrint balance of u1\n'
+    );
+    assert.equal(output, 'Alice\n250');
+  });
+
+  it('typed verb the Client', () => {
+    const { output } = runCode(
+      'Set u1 to dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balanceDue is 10.\nCall u1 the Current Client.\nTo Settle a Client:\n    Set the Client\'s balanceDue to 0.\n    Print "Settled " followed by the Client\'s name.\nSettle the Current Client.\nPrint balanceDue of u1.\n'
+    );
+    assert.equal(output, 'Settled Alice\n0');
+  });
+
+  it("it's field and there after write", () => {
+    const { output } = runCode(
+      'set u1 to dictionary of type is "User" and name is "Bob"\nPrint it\'s name\nWrite "z" to the file "_a_there.txt"\nPrint (cat there)\nDelete the file there\n'
+    );
+    assert.equal(output, 'Bob\nz');
+  });
+
+  it('method call entity.verb', () => {
+    const { output } = runCode(
+      'Set u1 to dictionary of type is "User" and name is "Cara".\nCall u1 the Current Client.\nTo Settle a Client:\n    Print the Client\'s name.\nSettle the Current Client.\n'
+    );
+    assert.equal(output, 'Cara');
+  });
 });
 
 console.log('All tests passed!');

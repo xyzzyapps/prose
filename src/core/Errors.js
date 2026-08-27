@@ -65,3 +65,13 @@ export class TypeError extends ProseError {
     this.name = 'TypeError';
   }
 }
+
+/**
+ * Ambiguous or missing anaphor / coreference.
+ */
+export class CoreferenceError extends ProseError {
+  constructor(message, line = 0, column = 0) {
+    super(message, line, column);
+    this.name = 'CoreferenceError';
+  }
+}

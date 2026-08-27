@@ -267,9 +267,12 @@ The `{ }` block content is captured as a BRACEBLOCK token without any Prose pars
 
 ```
 Execute the shell command [commandExpr].
+Execute the command [commandExpr].
+Run the command [commandExpr].
+system [commandExpr].
 ```
 
-Runs the given command string in the OS shell (via `child_process.spawnSync`). Both stdout and stderr are printed. The command has a 30-second timeout.
+Runs the given command in the OS shell (`child_process.spawnSync`, 30-second timeout). Stdout and stderr are printed. The `system` verb returns the exit code. The `shell` verb returns a ShellResult (stdout, stderr, code).
 
 ### 4.19 Shell Output Capture
 
@@ -394,13 +397,114 @@ Inside double-quoted strings, `${variable}` is replaced with the variable's stri
 
 ### 4.32 String Built-in Verbs
 
+Perl 4 / Tcl-inspired. Call as a sentence or a side-note: `(uppercase "hello")`.
+
 | Verb | Parameters | Description |
 |------|-----------|-------------|
-| `uppercase` | text | Returns uppercase text |
-| `lowercase` | text | Returns lowercase text |
-| `split` | text, delimiter | Splits text into a List |
-| `join` | list, delimiter | Joins list items with delimiter |
-| `replace` | text, old, new | Replaces all occurrences of old with new |
+| `uppercase` | text | Uppercase text |
+| `lowercase` | text | Lowercase text |
+| `split` | text, delimiter | Split text into a List |
+| `join` | list, delimiter | Join list items with delimiter |
+| `replace` | text, old, new | Replace all occurrences of old with new |
+| `length` | value | Character, list, or dictionary size |
+| `substr` | text, start, count | Substring (Perl `substr`) |
+| `index` | haystack, needle | First index of needle, or -1 |
+| `rindex` | haystack, needle | Last index of needle |
+| `chop` | text | Drop last character |
+| `chomp` | text | Strip trailing newlines |
+| `trim` | text | Strip leading/trailing whitespace |
+| `reverse` | value | Reverse a string or list |
+| `repeat` | text, count | Repeat text N times |
+| `sprintf` | format, ... | `%s` `%d` `%f` `%%` formatting |
+| `chr` | n | Character from code point |
+| `ord` | text | Code point of first character |
+| `startswith` | text, prefix | 1 if prefix matches |
+| `endswith` | text, suffix | 1 if suffix matches |
+| `contains` | haystack, needle | Text / list / dictionary membership |
+
+### 4.32a List Built-in Verbs
+
+Perl 4 array operations. `push` / `pop` / `shift` / `unshift` / `splice` mutate the list.
+
+| Verb | Parameters | Description |
+|------|-----------|-------------|
+| `push` | list, item... | Append items, return new length |
+| `pop` | list | Remove and return last item |
+| `shift` | list | Remove and return first item |
+| `unshift` | list, item... | Prepend items |
+| `sort` | list | Sorted copy (numeric-aware text) |
+| `first` | list | First item |
+| `last` | list | Last item |
+| `unique` | list | Deduplicated copy |
+| `slice` | list, start, end | Copy of a range |
+| `splice` | list, start, count, ... | Remove/insert in place |
+
+### 4.32b Dictionary Built-in Verbs
+
+Perl 4 hash operations.
+
+| Verb | Parameters | Description |
+|------|-----------|-------------|
+| `keys` | dict | List of keys |
+| `values` | dict | List of values |
+| `haskey` | dict, key | 1 if key exists |
+| `deletekey` | dict, key | Remove key, return prior value |
+| `dictsize` | dict | Number of entries |
+| `merge` | dest, src | Copy src entries into dest |
+
+### 4.32c Anaphora and coreference
+
+| Word | Refers to |
+|------|-----------|
+| `it` | Last scalar result, or the current keep/loop item |
+| `it's FIELD` | `FIELD of it` |
+| `there` | Last mentioned file or folder, or the target of `With TARGET then` |
+| `here` | Current working directory |
+| `those` | Last collection, or the list kept by `keep` |
+| `others` | Items a `keep` dropped |
+| `the number`, `the nearest number` | Most recently mentioned number |
+| `the Type` | Most recent entity of that type |
+
+```
+Keep Scores where _item is greater than 5.
+Print those.
+Print others.
+
+With "notes.txt" then:
+    Read the file there into Content.
+```
+
+Markdown bullets (`-`, `*`, `+`) and numbered items (`1. ...`) do not need a closing period. The number becomes a goto label (`Jump to the label 1.`).
+
+### 4.32d Dynamic entity graph
+
+A dictionary assigned to a name is registered as an entity. `the Active Admin` finds the most recent dictionary whose fields include those words (`status` is Active, `role` is Admin, or `type` is Admin). If two equally recent entities match, the script stops with a coreference error.
+
+```
+Set u1 to dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balance is 10.
+Print name of the Active Admin.
+Call the Active Admin the Current Client.
+Set the Current Client's balance to 250.
+Print balance of u1.
+```
+
+`Call it the Current Client.` attaches that phrase to the same entity.
+
+### 4.32e Teaching a verb
+
+`To Settle a Client:` names a new command. `Client` is a type, not a mere parameter name. The call supplies an entity; inside the body `the Client` / `the Client's …` corefers to that entity. Verb names and keywords follow the usual Prose capitals (`To`, `Set`, `Print`, `Settle`).
+
+```
+To Settle a Client:
+    Set the Client's balanceDue to 0.
+    Print "Settled " followed by the Client's name.
+
+Settle the Current Client.
+```
+
+More than one type: `To Charge a Client using an Amount:`. The filler is a **role**: inside the body `the Amount` and `the using number` are that argument. At the call, `using` / `with` / `into` / `from` / `by` / `as` / `to` / `and` may be written or left out.
+
+`Charge the Current Client using 50.`
 
 ### 4.33 Collection Operations (Map, Filter, Sum)
 
@@ -442,12 +546,39 @@ Every N seconds:
 
 ### 4.36 File Operations (Extended)
 
+Perl `-X` tests and tcsh-style path builtins.
+
 ```
 Delete the file [path].
+Make the directory [path].
+Change directory to [path].
+Copy the file [from] to [to].
+Rename the file [from] to [to].
+Touch the file [path].
+Append [expr] to the file [path].
 Files is the list of files in [dir].
 ```
 
-`Delete` removes a file. `the list of files in` returns a List of filenames in a directory.
+| Verb | Perl / tcsh analog | Description |
+|------|-------------------|-------------|
+| `fileexists` | `-e` | Path exists |
+| `isfile` | `-f` | Regular file |
+| `isdir` | `-d` | Directory |
+| `isreadable` | `-r` | Readable |
+| `iswritable` | `-w` | Writable |
+| `isexecutable` | `-x` | Executable |
+| `filesize` | `-s` | Size in bytes, or -1 |
+| `isemptyfile` | `-z` | Size is 0 |
+| `cat` | `cat` | Read file as Text |
+| `touch` | `touch` | Create or update mtime |
+| `mkdir` / `rmdir` | `mkdir` / `rmdir` | Create / remove directory |
+| `unlink` | `unlink` | Delete file |
+| `rename` / `copy` | `rename` / `cp` | Move / copy |
+| `chdir` / `pwd` | `cd` / `pwd` | Change / print working directory |
+| `chmod` | `chmod` | Mode (decimal 755 treated as octal) |
+| `glob` | `glob` / tcsh glob | Expand `*` and `?` |
+| `which` | `which` | Resolve command on PATH |
+| `basename` / `dirname` | same | Path parts |
 
 ---
 

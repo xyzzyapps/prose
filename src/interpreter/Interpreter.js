@@ -23,6 +23,9 @@ import {
   TryStmt, ReadFileStmt, WriteFileStmt, JsonParseExpr, LogicalExpr,
   EnvVarExpr, FetchExpr, RangeForStmt, PipeShellStmt, IncludeStmt,
   MapExpr, FilterExpr, SumExpr, AfterStmt, EveryStmt, DeleteFileStmt, ListFilesExpr,
+  MkdirStmt, ChdirStmt, CopyFileStmt, RenameFileStmt, TouchFileStmt, AppendFileStmt,
+  SequenceStmt, AliasStmt, KeepStmt, WithStmt, MethodCallStmt, NopStmt,
+  CorefExpr, OfPropertyExpr, DictLiteralExpr, KeepExpr,
   LiteralExpr, VariableExpr, PropertyAccessExpr,
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from '../parser/AST.js';
@@ -32,7 +35,8 @@ import {
   ShellResultValue,
 } from '../core/Value.js';
 import { Environment, VerbDefinition as VerbDef } from '../core/Environment.js';
-import { ProseError, RuntimeError, NameError, TypeError } from '../core/Errors.js';
+import { ProseError, RuntimeError, NameError, TypeError, CoreferenceError } from '../core/Errors.js';
+import { ANAPHORS, getProperty, setProperty } from '../core/Discourse.js';
 import { Logger } from '../core/Logger.js';
 import { registerBuiltins, valueToNumber, valueToString } from './Builtins.js';
 import { Lexer } from '../lexer/Lexer.js';
@@ -168,6 +172,10 @@ export class Interpreter {
       case FilterExpr: return this._evalFilter(expr);
       case SumExpr: return this._evalSum(expr);
       case ListFilesExpr: return this._evalListFiles(expr);
+      case CorefExpr: return this._evalCoref(expr);
+      case OfPropertyExpr: return this._evalOfProperty(expr);
+      case DictLiteralExpr: return this._evalDictLiteral(expr);
+      case KeepExpr: return this._evalKeep(expr);
       default:
         throw new RuntimeError(
           `Unknown expression type: ${expr.constructor.name}`,
@@ -214,6 +222,20 @@ export class Interpreter {
       case AfterStmt: return this._execAfter(stmt);
       case EveryStmt: return this._execEvery(stmt);
       case DeleteFileStmt: return this._execDeleteFile(stmt);
+      case MkdirStmt: return this._execMkdir(stmt);
+      case ChdirStmt: return this._execChdir(stmt);
+      case CopyFileStmt: return this._execCopyFile(stmt);
+      case RenameFileStmt: return this._execRenameFile(stmt);
+      case TouchFileStmt: return this._execTouchFile(stmt);
+      case AppendFileStmt: return this._execAppendFile(stmt);
+      case AliasStmt: return this._execAlias(stmt);
+      case KeepStmt: return this._execKeep(stmt);
+      case WithStmt: return this._execWith(stmt);
+      case MethodCallStmt: return this._execMethodCall(stmt);
+      case NopStmt: return NULL;
+      case SequenceStmt:
+        for (const s of stmt.statements) this.execute(s);
+        return NULL;
       default:
         throw new RuntimeError(
           `Unknown statement type: ${stmt.constructor.name}`,
@@ -229,8 +251,11 @@ export class Interpreter {
   /** @param {LiteralExpr} expr */
   _evalLiteral(expr) {
     switch (expr.valueType) {
-      case 'number':
-        return new NumberValue(Number(expr.rawValue));
+      case 'number': {
+        const n = new NumberValue(Number(expr.rawValue));
+        this.env.getDiscourse().mentionScalar(n);
+        return n;
+      }
       case 'text':
         return new TextValue(expr.rawValue);
       case 'heredoc':
@@ -246,38 +271,38 @@ export class Interpreter {
 
   /** @param {VariableExpr} expr */
   _evalVariable(expr) {
+    if (ANAPHORS.has(expr.name.toLowerCase())) {
+      return this.env.getDiscourse().resolveAnaphor(expr.name, expr.line, expr.column);
+    }
     const val = this.env.lookup(expr.name);
     if (val === null) {
-      throw new NameError(
-        `Variable "${expr.name}" does not exist`,
-        expr.line, expr.column
-      );
+      try {
+        return this.env.getDiscourse().resolvePhrase(expr.name.split(/\s+/), expr.line, expr.column);
+      } catch (e) {
+        if (e instanceof CoreferenceError) {
+          throw new NameError(
+            `Variable "${expr.name}" does not exist`,
+            expr.line, expr.column
+          );
+        }
+        throw e;
+      }
     }
+    this._mentionValue(val);
     return val;
   }
 
   /** @param {PropertyAccessExpr} expr */
   _evalPropertyAccess(expr) {
-    const entity = this.env.lookup(expr.entity);
-    if (!entity) {
-      throw new NameError(
-        `Entity "${expr.entity}" does not exist`,
-        expr.line, expr.column
-      );
-    }
-    if (!(entity instanceof EntityValue)) {
-      throw new TypeError(
-        `"${expr.entity}" is not an entity with properties`,
-        expr.line, expr.column
-      );
-    }
-    const val = entity.get(expr.property);
-    if (val === null) {
+    const entity = this._resolveName(expr.entity, expr.line, expr.column);
+    const val = getProperty(entity, expr.property);
+    if (val === null || val === undefined) {
       throw new NameError(
         `Property "${expr.property}" does not exist on ${expr.entity}`,
         expr.line, expr.column
       );
     }
+    this._mentionValue(val);
     return val;
   }
 
@@ -363,9 +388,8 @@ export class Interpreter {
         result = this.execute(innerStmt);
       }
 
-      // Convert result to text
-      if (result instanceof TextValue) return result;
-      return new TextValue(this.stringify(result));
+      if (!result) return new TextValue('');
+      return result;
     }
 
     // Regular inline verb call
@@ -444,26 +468,21 @@ export class Interpreter {
   _execAssignment(stmt) {
     const value = this.evaluate(stmt.value);
 
+    this._mentionValue(value);
+    if (value instanceof DictionaryValue || value instanceof EntityValue) {
+      this.env.getDiscourse().registerEntity(value, stmt.entity ? null : stmt.target);
+    }
+
     if (stmt.entity) {
-      // Entity property assignment: Alice's age is 25.
-      const entity = this.env.lookup(stmt.entity);
-      if (!entity) {
-        throw new NameError(
-          `Entity "${stmt.entity}" does not exist`,
-          stmt.line, stmt.column
-        );
-      }
-      if (!(entity instanceof EntityValue)) {
+      const entity = this._resolveName(stmt.entity, stmt.line, stmt.column);
+      if (!setProperty(entity, stmt.target, value)) {
         throw new TypeError(
           `"${stmt.entity}" is not an entity`,
           stmt.line, stmt.column
         );
       }
-      entity.set(stmt.target, value);
-
-      // Fire reactive watchers
+      this.env.getDiscourse().registerEntity(entity);
       this.env.fireWatchers(stmt.entity, stmt.target, entity, value, this);
-
       logger.debug(`Set ${stmt.entity}'s ${stmt.target} = ${this.stringify(value)}`);
     } else {
       // Simple variable assignment: X is 30.
@@ -548,10 +567,15 @@ export class Interpreter {
       );
     }
 
+    const d = this.env.getDiscourse();
+    d.mentionCollection(collection);
     for (const item of collection.items) {
       this.env.define(stmt.iteratorVar, item);
+      d.loopItem = item;
+      d.it = item;
       this._executeBlock(stmt.body);
     }
+    d.loopItem = null;
     return NULL;
   }
 
@@ -560,6 +584,7 @@ export class Interpreter {
     const verbDef = new VerbDef(
       stmt.name, stmt.params, stmt.body, this.env
     );
+    verbDef.slots = stmt.slots;
     this.env.defineVerb(stmt.name, verbDef);
     logger.debug(`Defined verb "${stmt.name}" with params: ${stmt.params.join(', ')}`);
     return NULL;
@@ -712,13 +737,34 @@ export class Interpreter {
 
   /** @param {MutationStmt} stmt */
   _execMutation(stmt) {
-    let currentVal;
-    if (stmt.entity) {
-      const entity = this.env.lookup(stmt.entity);
-      if (!entity || !(entity instanceof EntityValue)) {
-        throw new NameError(`Entity "${stmt.entity}" does not exist`, stmt.line, stmt.column);
+    const operand = this.evaluate(stmt.value);
+
+    if (stmt.operation === 'set') {
+      this._mentionValue(operand);
+      if (operand instanceof DictionaryValue || operand instanceof EntityValue) {
+        this.env.getDiscourse().registerEntity(operand, stmt.entity ? null : stmt.target);
       }
-      currentVal = entity.get(stmt.target);
+      if (stmt.entity) {
+        const entity = this._resolveName(stmt.entity, stmt.line, stmt.column);
+        if (!setProperty(entity, stmt.target, operand)) {
+          throw new TypeError(`"${stmt.entity}" is not an entity`, stmt.line, stmt.column);
+        }
+        this.env.getDiscourse().registerEntity(entity);
+        this.env.fireWatchers(stmt.entity, stmt.target, entity, operand, this);
+      } else {
+        const existing = this.env.lookup(stmt.target);
+        if (!existing) this.env.define(stmt.target, operand);
+        else this.env.set(stmt.target, operand);
+        this.env.fireVarWatchers(stmt.target, operand, this);
+      }
+      return operand;
+    }
+
+    let currentVal;
+    let entity = null;
+    if (stmt.entity) {
+      entity = this._resolveName(stmt.entity, stmt.line, stmt.column);
+      currentVal = getProperty(entity, stmt.target);
       if (!currentVal) {
         throw new NameError(`Property "${stmt.target}" not found on ${stmt.entity}`, stmt.line, stmt.column);
       }
@@ -730,34 +776,17 @@ export class Interpreter {
     }
 
     const currentNum = this.toNumber(currentVal);
-    const operandNum = this.toNumber(this.evaluate(stmt.value));
-
-    let newNum;
-    switch (stmt.operation) {
-      case 'increase':
-        newNum = currentNum + operandNum;
-        break;
-      case 'decrease':
-        newNum = currentNum - operandNum;
-        break;
-      case 'set':
-        newNum = operandNum;
-        break;
-      default:
-        throw new RuntimeError(`Unknown mutation: ${stmt.operation}`, stmt.line, stmt.column);
-    }
-
+    const operandNum = this.toNumber(operand);
+    const newNum = stmt.operation === 'increase' ? currentNum + operandNum : currentNum - operandNum;
     const newVal = new NumberValue(newNum);
+    this.env.getDiscourse().mentionScalar(newVal);
 
     if (stmt.entity) {
-      const entity = this.env.lookup(stmt.entity);
-      entity.set(stmt.target, newVal);
+      setProperty(entity, stmt.target, newVal);
       this.env.fireWatchers(stmt.entity, stmt.target, entity, newVal, this);
     } else {
       this.env.set(stmt.target, newVal);
     }
-
-    logger.debug(`${stmt.operation}d ${stmt.entity ? stmt.entity + "'s " : ''}${stmt.target} by ${operandNum} -> ${newNum}`);
     return newVal;
   }
 
@@ -865,6 +894,8 @@ export class Interpreter {
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
       this.env.set(stmt.targetVar, new TextValue(content), true);
+      this.env.getDiscourse().mentionPath(filePath);
+      this.env.getDiscourse().mentionScalar(this.env.lookup(stmt.targetVar));
     } catch (e) {
       throw new RuntimeError(`Cannot read file "${filePath}": ${e.message}`, stmt.line, stmt.column);
     }
@@ -880,6 +911,7 @@ export class Interpreter {
     logger.debug(`Writing file: ${filePath}`);
     try {
       fs.writeFileSync(filePath, content, 'utf-8');
+      this.env.getDiscourse().mentionPath(filePath);
     } catch (e) {
       throw new RuntimeError(`Cannot write file "${filePath}": ${e.message}`, stmt.line, stmt.column);
     }
@@ -1093,8 +1125,85 @@ export class Interpreter {
   _execDeleteFile(stmt) {
     const pathVal = this.evaluate(stmt.pathExpr);
     const filePath = this.stringify(pathVal);
+    this.env.getDiscourse().mentionPath(filePath);
     try { fs.unlinkSync(filePath); } catch (e) {
       throw new RuntimeError(`Cannot delete "${filePath}": ${e.message}`, stmt.line, stmt.column);
+    }
+    return NULL;
+  }
+
+  /** @param {MkdirStmt} stmt */
+  _execMkdir(stmt) {
+    const filePath = this.stringify(this.evaluate(stmt.pathExpr));
+    try {
+      fs.mkdirSync(filePath, { recursive: true });
+      this.env.getDiscourse().mentionPath(filePath);
+    } catch (e) {
+      throw new RuntimeError(`Cannot make directory "${filePath}": ${e.message}`, stmt.line, stmt.column);
+    }
+    return new TextValue(filePath);
+  }
+
+  /** @param {ChdirStmt} stmt */
+  _execChdir(stmt) {
+    const filePath = this.stringify(this.evaluate(stmt.pathExpr));
+    try {
+      process.chdir(filePath);
+      this.env.getDiscourse().mentionPath(process.cwd());
+    } catch (e) {
+      throw new RuntimeError(`Cannot change directory to "${filePath}": ${e.message}`, stmt.line, stmt.column);
+    }
+    return new TextValue(process.cwd());
+  }
+
+  /** @param {CopyFileStmt} stmt */
+  _execCopyFile(stmt) {
+    const from = this.stringify(this.evaluate(stmt.fromExpr));
+    const to = this.stringify(this.evaluate(stmt.toExpr));
+    try {
+      fs.copyFileSync(from, to);
+    } catch (e) {
+      throw new RuntimeError(`Cannot copy "${from}" to "${to}": ${e.message}`, stmt.line, stmt.column);
+    }
+    return new TextValue(to);
+  }
+
+  /** @param {RenameFileStmt} stmt */
+  _execRenameFile(stmt) {
+    const from = this.stringify(this.evaluate(stmt.fromExpr));
+    const to = this.stringify(this.evaluate(stmt.toExpr));
+    try {
+      fs.renameSync(from, to);
+    } catch (e) {
+      throw new RuntimeError(`Cannot rename "${from}" to "${to}": ${e.message}`, stmt.line, stmt.column);
+    }
+    return new TextValue(to);
+  }
+
+  /** @param {TouchFileStmt} stmt */
+  _execTouchFile(stmt) {
+    const filePath = this.stringify(this.evaluate(stmt.pathExpr));
+    const now = new Date();
+    try {
+      fs.utimesSync(filePath, now, now);
+    } catch {
+      try {
+        fs.writeFileSync(filePath, '');
+      } catch (e) {
+        throw new RuntimeError(`Cannot touch "${filePath}": ${e.message}`, stmt.line, stmt.column);
+      }
+    }
+    return new TextValue(filePath);
+  }
+
+  /** @param {AppendFileStmt} stmt */
+  _execAppendFile(stmt) {
+    const content = this.stringify(this.evaluate(stmt.valueExpr));
+    const filePath = this.stringify(this.evaluate(stmt.pathExpr));
+    try {
+      fs.appendFileSync(filePath, content, 'utf-8');
+    } catch (e) {
+      throw new RuntimeError(`Cannot append to "${filePath}": ${e.message}`, stmt.line, stmt.column);
     }
     return NULL;
   }
@@ -1139,16 +1248,27 @@ export class Interpreter {
     }
 
     if (def.native) {
-      return def.execute(args, this.env, this);
+      const result = def.execute(args, this.env, this);
+      this._mentionValue(result);
+      return result;
     }
 
     // User-defined verb
-    // Create a new scope for the verb execution
     const verbEnv = new Environment(def.closure);
 
-    // Bind parameters to arguments
-    for (let i = 0; i < def.params.length && i < args.length; i++) {
-      verbEnv.define(def.params[i], args[i]);
+    const slots = def.slots && def.slots.length ? def.slots : def.params.map(p => ({ type: p, role: null }));
+    for (let i = 0; i < slots.length && i < args.length; i++) {
+      const slot = slots[i];
+      const arg = args[i];
+      verbEnv.define(slot.type, arg);
+      verbEnv.define(slot.type.toLowerCase(), arg);
+      if (slot.role) {
+        verbEnv.define(slot.role, arg);
+        verbEnv.define(`${slot.role} number`, arg);
+        verbEnv.define(`${slot.role} ${slot.type}`, arg);
+        verbEnv.define(`the ${slot.role} number`, arg);
+      }
+      this.env.getDiscourse().registerEntity(arg, slot.type);
     }
 
     // Execute the verb body
@@ -1159,12 +1279,127 @@ export class Interpreter {
       verbInterp._executeBlock(def.body);
     } catch (e) {
       if (e instanceof ReturnSignal) {
+        this._mentionValue(e.value);
         return e.value;
       }
       throw e;
     }
 
     return NULL;
+  }
+
+  _mentionValue(val) {
+    if (!val) return;
+    const d = this.env.getDiscourse();
+    d.mentionScalar(val);
+    if (val instanceof ListValue) d.mentionCollection(val);
+    if (val instanceof DictionaryValue || val instanceof EntityValue) d.registerEntity(val);
+  }
+
+  _resolveName(name, line, column) {
+    if (!name) throw new NameError('Missing name', line, column);
+    const lower = name.toLowerCase();
+    if (ANAPHORS.has(lower)) {
+      return this.env.getDiscourse().resolveAnaphor(lower, line, column);
+    }
+    const found = this.env.lookup(name);
+    if (found) return found;
+    return this.env.getDiscourse().resolvePhrase(String(name).split(/\s+/), line, column);
+  }
+
+  _evalCoref(expr) {
+    const d = this.env.getDiscourse();
+    if (expr.kind === 'phrase') {
+      const v = d.resolvePhrase(expr.words, expr.line, expr.column);
+      this._mentionValue(v);
+      return v;
+    }
+    if (expr.kind === 'role') {
+      const joined = expr.words.join(' ');
+      let v = this.env.lookup(joined) || this.env.lookup(expr.words[0]);
+      if (!v) {
+        v = d.resolvePhrase(expr.words, expr.line, expr.column);
+      }
+      return v;
+    }
+    return d.resolveAnaphor(expr.kind, expr.line, expr.column);
+  }
+
+  _evalOfProperty(expr) {
+    const obj = this.evaluate(expr.objectExpr);
+    const val = getProperty(obj, expr.property);
+    if (val === null || val === undefined) {
+      throw new NameError(
+        `Property "${expr.property}" does not exist`,
+        expr.line, expr.column
+      );
+    }
+    this._mentionValue(val);
+    return val;
+  }
+
+  _evalDictLiteral(expr) {
+    const dict = new DictionaryValue();
+    for (const pair of expr.pairs) {
+      dict.set(pair.key, this.evaluate(pair.value));
+    }
+    this.env.getDiscourse().registerEntity(dict);
+    this._mentionValue(dict);
+    return dict;
+  }
+
+  _runKeep(sourceExpr, condition, line, column) {
+    const source = this.evaluate(sourceExpr);
+    if (!(source instanceof ListValue)) throw new RuntimeError('keep requires a List', line, column);
+    const kept = new ListValue();
+    const dropped = new ListValue();
+    const d = this.env.getDiscourse();
+    for (const item of source.items) {
+      this.env.define('_item', item);
+      d.loopItem = item;
+      const cond = this.evaluate(condition);
+      if (this.isTruthy(cond)) kept.push(item);
+      else dropped.push(item);
+    }
+    d.loopItem = null;
+    d.those = kept;
+    d.others = dropped;
+    d.mentionCollection(kept);
+    return kept;
+  }
+
+  _evalKeep(expr) {
+    return this._runKeep(expr.sourceExpr, expr.condition, expr.line, expr.column);
+  }
+
+  _execKeep(stmt) {
+    return this._runKeep(stmt.sourceExpr, stmt.condition, stmt.line, stmt.column);
+  }
+
+  _execAlias(stmt) {
+    const target = this.evaluate(stmt.targetExpr);
+    const phrase = stmt.aliasWords.join(' ');
+    this.env.getDiscourse().registerEntity(target);
+    this.env.getDiscourse().alias(phrase, target);
+    this.env.define(phrase, target);
+    this.env.getDiscourse().it = target;
+    return target;
+  }
+
+  _execWith(stmt) {
+    const target = this.evaluate(stmt.targetExpr);
+    const d = this.env.getDiscourse();
+    d.mentionPath(this.stringify(target));
+    d.it = target;
+    this._executeBlock(stmt.body);
+    return target;
+  }
+
+  _execMethodCall(stmt) {
+    const target = this.evaluate(stmt.targetExpr);
+    this.env.define('__method_target', target);
+    const liveArgs = [new VariableExpr('__method_target', stmt.line, stmt.column), ...stmt.args];
+    return this._callVerb(stmt.verbName, liveArgs, stmt.line, stmt.column);
   }
 
   // -----------------------------------------------------------------------

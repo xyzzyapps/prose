@@ -155,12 +155,14 @@ export class VerbDefinition extends Stmt {
    * @param {Stmt[]} body
    * @param {number} line
    * @param {number} column
+   * @param {{ type: string, role: string|null }[]|null} [slots]
    */
-  constructor(name, params, body, line, column) {
+  constructor(name, params, body, line, column, slots = null) {
     super(line, column);
     this.name = name;
     this.params = params;
     this.body = body;
+    this.slots = slots;
   }
   nodeType() { return 'VerbDefinition'; }
 }
@@ -704,4 +706,159 @@ export class ListFilesExpr extends Expr {
     this.dirExpr = dirExpr;
   }
   nodeType() { return 'ListFilesExpr'; }
+}
+
+/** `Make the directory "path".` */
+export class MkdirStmt extends Stmt {
+  constructor(pathExpr, line, column) {
+    super(line, column);
+    this.pathExpr = pathExpr;
+  }
+  nodeType() { return 'MkdirStmt'; }
+}
+
+/** `Change directory to "path".` */
+export class ChdirStmt extends Stmt {
+  constructor(pathExpr, line, column) {
+    super(line, column);
+    this.pathExpr = pathExpr;
+  }
+  nodeType() { return 'ChdirStmt'; }
+}
+
+/** `Copy the file "from" to "to".` */
+export class CopyFileStmt extends Stmt {
+  constructor(fromExpr, toExpr, line, column) {
+    super(line, column);
+    this.fromExpr = fromExpr;
+    this.toExpr = toExpr;
+  }
+  nodeType() { return 'CopyFileStmt'; }
+}
+
+/** `Rename the file "from" to "to".` */
+export class RenameFileStmt extends Stmt {
+  constructor(fromExpr, toExpr, line, column) {
+    super(line, column);
+    this.fromExpr = fromExpr;
+    this.toExpr = toExpr;
+  }
+  nodeType() { return 'RenameFileStmt'; }
+}
+
+/** `Touch the file "path".` */
+export class TouchFileStmt extends Stmt {
+  constructor(pathExpr, line, column) {
+    super(line, column);
+    this.pathExpr = pathExpr;
+  }
+  nodeType() { return 'TouchFileStmt'; }
+}
+
+/** `Append expr to the file "path".` */
+export class AppendFileStmt extends Stmt {
+  constructor(valueExpr, pathExpr, line, column) {
+    super(line, column);
+    this.valueExpr = valueExpr;
+    this.pathExpr = pathExpr;
+  }
+  nodeType() { return 'AppendFileStmt'; }
+}
+
+/** Flattened group of statements (numbered list item = label + body). */
+export class SequenceStmt extends Stmt {
+  constructor(statements, line, column) {
+    super(line, column);
+    this.statements = statements;
+  }
+  nodeType() { return 'SequenceStmt'; }
+}
+
+/** `call TARGET the Alias Phrase` */
+export class AliasStmt extends Stmt {
+  constructor(targetExpr, aliasWords, line, column) {
+    super(line, column);
+    this.targetExpr = targetExpr;
+    this.aliasWords = aliasWords;
+  }
+  nodeType() { return 'AliasStmt'; }
+}
+
+/** `Keep SOURCE where CONDITION.` */
+export class KeepStmt extends Stmt {
+  constructor(sourceExpr, condition, line, column) {
+    super(line, column);
+    this.sourceExpr = sourceExpr;
+    this.condition = condition;
+  }
+  nodeType() { return 'KeepStmt'; }
+}
+
+/** `With TARGET then: ...` */
+export class WithStmt extends Stmt {
+  constructor(targetExpr, body, line, column) {
+    super(line, column);
+    this.targetExpr = targetExpr;
+    this.body = body;
+  }
+  nodeType() { return 'WithStmt'; }
+}
+
+/** `the Current Client.settle args` */
+export class MethodCallStmt extends Stmt {
+  constructor(targetExpr, verbName, args, line, column) {
+    super(line, column);
+    this.targetExpr = targetExpr;
+    this.verbName = verbName;
+    this.args = args;
+  }
+  nodeType() { return 'MethodCallStmt'; }
+}
+
+/** `end` */
+export class NopStmt extends Stmt {
+  nodeType() { return 'NopStmt'; }
+}
+
+/** Anaphor or typed phrase: `it`, `the Active Admin`, `the number` */
+export class CorefExpr extends Expr {
+  /**
+   * @param {string} kind  'it'|'there'|'here'|'those'|'others'|'number'|'phrase'|'role'
+   * @param {string[]} words
+   */
+  constructor(kind, words, line, column) {
+    super(line, column);
+    this.kind = kind;
+    this.words = words;
+  }
+  nodeType() { return 'CorefExpr'; }
+}
+
+/** `name of the Active Admin` */
+export class OfPropertyExpr extends Expr {
+  constructor(property, objectExpr, line, column) {
+    super(line, column);
+    this.property = property;
+    this.objectExpr = objectExpr;
+  }
+  nodeType() { return 'OfPropertyExpr'; }
+}
+
+/** `dictionary of type is "User" and status is "Active"` */
+export class DictLiteralExpr extends Expr {
+  constructor(pairs, line, column) {
+    super(line, column);
+    this.pairs = pairs; // [{key: string, value: Expr}]
+  }
+  nodeType() { return 'DictLiteralExpr'; }
+}
+
+/** `keep SOURCE where CONDITION` as an expression */
+export class KeepExpr extends Expr {
+  constructor(sourceExpr, condition, line, column) {
+    super(line, column);
+    this.sourceExpr = sourceExpr;
+    this.condition = condition;
+  }
+  nodeType() { return 'KeepExpr'; }
 }

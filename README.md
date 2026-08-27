@@ -228,12 +228,12 @@ Using ProcessRules parse {
 ```
 # Execute and print output
 Execute the shell command "dir".
+Run the command "echo hello".
+system "echo from system".
 
-# Capture output into a variable
+# Capture output (Perl backticks)
 Listing is the output of the shell command "ls -la".
-
-# Pipe between commands
-Run the shell command "cat log.txt" and pipe to "grep ERROR".
+Out is (backtick "echo captured").
 ```
 
 ### Environment Variables
@@ -248,24 +248,61 @@ Home is the environment variable "HOME".
 Page is the fetched content of the url "https://api.example.com/data".
 ```
 
+### Anaphora
+
+```
+Print it.                    # last scalar
+Print the number.            # last number
+Print here.                  # current folder
+Print there.                 # last file path
+Keep Scores where _item is greater than 5.
+Print those.                 # kept
+Print others.                # dropped
+Print name of the Active Admin.
+Call it the Current Client.
+Settle the Current Client.
+```
+
+Numbered markdown lists (`1. Print "hi"`) omit the period; the number is a goto label.
+
 ### String Manipulation
 
 ```
-Shout is (uppercase "hello").                          # "HELLO"
-Quiet is (lowercase "HELLO").                          # "hello"
-Replaced is (replace in "abc" replace "b" with "x").  # "axc"
+Shout is (uppercase "hello").
+Len is (length "hello").
+Part is (substr "hello" 1 3).
 ```
 
-Also available: `split` (into list), `join` (from list).
+Also: `lowercase`, `split`, `join`, `replace`, `index`, `rindex`, `chop`, `chomp`, `trim`, `reverse`, `repeat`, `sprintf`, `chr`, `ord`, `startswith`, `endswith`, `contains`.
+
+### List and Dictionary Operations
+
+```
+A List named Items exists.
+Items contains "a", "b", and "c".
+Print (push Items "d").
+Print (pop Items).
+Print (sort Items).
+Print (keys Capitals).
+```
+
+Also: `shift`, `unshift`, `first`, `last`, `unique`, `slice`, `splice`, `values`, `haskey`, `deletekey`, `dictsize`, `merge`.
 
 ### File I/O
 
 ```
 Write "Hello, file!" to the file "output.txt".
 Read the file "output.txt" into Content.
+Append " more" to the file "output.txt".
+Copy the file "output.txt" to "copy.txt".
+Rename the file "copy.txt" to "renamed.txt".
+Touch the file "stamp.txt".
+Make the directory "tmp_prose".
 Delete the file "output.txt".
 Files is the list of files in ".".
 ```
+
+File tests (Perl `-e`/`-f`/`-d`/`-r`/`-w`/`-s`/`-z`): `fileexists`, `isfile`, `isdir`, `isreadable`, `iswritable`, `isexecutable`, `filesize`, `isemptyfile`. Also `cat`, `glob`, `which`, `pwd`, `chdir`, `chmod`, `basename`, `dirname`.
 
 ### JSON Parsing
 

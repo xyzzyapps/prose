@@ -20,6 +20,9 @@ import {
   TryStmt, ReadFileStmt, WriteFileStmt, JsonParseExpr, LogicalExpr,
   EnvVarExpr, FetchExpr, RangeForStmt, PipeShellStmt, IncludeStmt,
   MapExpr, FilterExpr, SumExpr, AfterStmt, EveryStmt, DeleteFileStmt, ListFilesExpr,
+  MkdirStmt, ChdirStmt, CopyFileStmt, RenameFileStmt, TouchFileStmt, AppendFileStmt,
+  SequenceStmt, AliasStmt, KeepStmt, WithStmt, MethodCallStmt, NopStmt,
+  CorefExpr, OfPropertyExpr, DictLiteralExpr, KeepExpr,
   LiteralExpr, VariableExpr, PropertyAccessExpr,
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from './AST.js';
@@ -39,7 +42,17 @@ const logger = new Logger('parser');
  * (like "is", "named", "by", "to", etc.) - those are handled explicitly.
  */
 const NOISE = new Set([
-  'a', 'an', 'the',
+  'a', 'an',
+]);
+
+const ROLE_FILLERS = new Set(['using', 'with', 'into', 'from', 'by', 'as', 'to', 'and']);
+const ANAPHOR_WORDS = new Set(['it', 'there', 'here', 'those', 'others']);
+
+const PHRASE_STOP = new Set([
+  'is', 'to', 'by', 'of', 'then', 'where', 'and', 'or', 'followed', 'plus', 'minus',
+  'times', 'divided', 'using', 'with', 'into', 'from', 'as', 'named', 'exists',
+  'maps', 'contains', 'print', 'if', 'while', 'for', 'call', 'set', 'keep',
+  'end', 'the', 'a', 'an',
 ]);
 
 export class Parser {
@@ -104,6 +117,34 @@ export class Parser {
     }
   }
 
+  _atStmtEnd() {
+    const t = this._current().type;
+    return t === TokenType.PERIOD || t === TokenType.NEWLINE || t === TokenType.DEDENT ||
+           t === TokenType.EOF || t === TokenType.RPAREN || t === TokenType.COLON;
+  }
+
+  /** Sentence terminator: period, or end of line / block (markdown lists). */
+  _expectEnd() {
+    if (this._check(TokenType.PERIOD)) {
+      this._advance();
+      return;
+    }
+    if (this._atStmtEnd()) return;
+    const tok = this._current();
+    throw new SyntaxError(
+      `Expected "." but got ${tok.type}("${tok.value}")`,
+      tok.line, tok.column
+    );
+  }
+
+  _flattenStmt(stmt, out) {
+    if (stmt instanceof SequenceStmt) {
+      for (const s of stmt.statements) this._flattenStmt(s, out);
+    } else if (stmt) {
+      out.push(stmt);
+    }
+  }
+
   /** Skip until we hit a specific token type */
   _skipPast(type) {
     while (this.pos < this.tokens.length && this._current().type !== type) {
@@ -134,7 +175,7 @@ export class Parser {
       try {
         const stmt = this.parseStatement();
         if (stmt) {
-          statements.push(stmt);
+          this._flattenStmt(stmt, statements);
         }
       } catch (e) {
         if (e instanceof SyntaxError) {
@@ -161,10 +202,17 @@ export class Parser {
    * @returns {Stmt|null}
    */
   parseStatement() {
+    while (this._check(TokenType.BULLET)) this._advance();
     const savedPos = this.pos;
 
     // Try each statement pattern in order
     const patterns = [
+      () => this._parseNumberedItem(),
+      () => this._parseNopEnd(),
+      () => this._parseAliasCall(),
+      () => this._parseKeepStmt(),
+      () => this._parseWithStmt(),
+      () => this._parseMethodCall(),
       () => this._parseLabel(),
       () => this._parseWhenever(),
       () => this._parseAfter(),          // After N seconds:
@@ -184,6 +232,13 @@ export class Parser {
       () => this._parseWriteFile(),      // Write ... to the file "...".
       () => this._parseInclude(),        // Include "file.prose".
       () => this._parseDeleteFile(),      // Delete the file "path".
+      () => this._parseMkdir(),           // Make the directory "path".
+      () => this._parseChdir(),           // Change directory to "path".
+      () => this._parseCopyFile(),        // Copy the file A to B.
+      () => this._parseRenameFile(),      // Rename the file A to B.
+      () => this._parseTouchFile(),       // Touch the file "path".
+      () => this._parseAppendFile(),      // Append expr to the file "path".
+      () => this._parseRunCommand(),      // Run the command "...".
       () => this._parseVariableDecl(),
       () => this._parseDictionarySet(),
       () => this._parseQuery(),
@@ -307,28 +362,141 @@ export class Parser {
   // Individual statement parsers
   // ===================================================================
 
+  /** `1. Print "hello"` — number becomes a goto label. */
+  _parseNumberedItem() {
+    if (!this._check(TokenType.NUMBER)) return null;
+    const numTok = this._advance();
+    this._match(TokenType.PERIOD);
+    this._match(TokenType.COLON);
+    while (this._check(TokenType.BULLET)) this._advance();
+    if (this._atStmtEnd() && !this._check(TokenType.COLON)) {
+      return new LabelStmt(String(numTok.value), numTok.line, numTok.column);
+    }
+    const inner = this.parseStatement();
+    return new SequenceStmt(
+      [new LabelStmt(String(numTok.value), numTok.line, numTok.column), inner],
+      numTok.line, numTok.column
+    );
+  }
+
+  /** Optional `end` after a block. */
+  _parseNopEnd() {
+    const tok = this._match(TokenType.WORD, 'end');
+    if (!tok) return null;
+    this._expectEnd();
+    return new NopStmt(tok.line, tok.column);
+  }
+
+  /** `call TARGET the Alias Phrase` */
+  _parseAliasCall() {
+    const callTok = this._match(TokenType.WORD, 'call');
+    if (!callTok) return null;
+    const targetExpr = this.parseExpression();
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    const words = [];
+    while (this._check(TokenType.WORD) &&
+           !PHRASE_STOP.has(this._current().value.toLowerCase())) {
+      words.push(this._advance().value);
+    }
+    this._expectEnd();
+    if (words.length === 0) return null;
+    return new AliasStmt(targetExpr, words, callTok.line, callTok.column);
+  }
+
+  /** `Keep SOURCE where CONDITION.` */
+  _parseKeepStmt() {
+    const keepTok = this._match(TokenType.WORD, 'keep');
+    if (!keepTok) return null;
+    const sourceExpr = this.parseExpression();
+    this._skipNoise();
+    this._expect(TokenType.WORD, 'where');
+    const condition = this.parseExpression();
+    this._expectEnd();
+    return new KeepStmt(sourceExpr, condition, keepTok.line, keepTok.column);
+  }
+
+  /** `With TARGET then: ...` */
+  _parseWithStmt() {
+    const withTok = this._match(TokenType.WORD, 'with');
+    if (!withTok) return null;
+    const targetExpr = this.parseExpression();
+    this._skipNoise();
+    this._expect(TokenType.WORD, 'then');
+    const body = this.consumeBlock();
+    return new WithStmt(targetExpr, body, withTok.line, withTok.column);
+  }
+
+  /** `the Current Client.settle args` */
+  _parseMethodCall() {
+    const saved = this.pos;
+    let targetExpr;
+    try {
+      targetExpr = this._parsePrimary();
+    } catch {
+      this.pos = saved;
+      return null;
+    }
+    if (!this._check(TokenType.DOT)) {
+      this.pos = saved;
+      return null;
+    }
+    this._advance();
+    const verbTok = this._expect(TokenType.WORD);
+    const args = [];
+    while (!this._atStmtEnd() && this._current().type !== TokenType.DEDENT) {
+      if (this._current().type === TokenType.WORD &&
+          ROLE_FILLERS.has(this._current().value.toLowerCase())) {
+        this._advance();
+        continue;
+      }
+      if (this._current().type === TokenType.WORD &&
+          NOISE.has(this._current().value.toLowerCase())) {
+        this._advance();
+        continue;
+      }
+      try {
+        const expr = this.parseExpression();
+        if (expr) args.push(expr);
+        else break;
+      } catch {
+        break;
+      }
+    }
+    this._expectEnd();
+    return new MethodCallStmt(targetExpr, verbTok.value, args, verbTok.line, verbTok.column);
+  }
+
   /** `Label "name".` */
   _parseLabel() {
     this._skipNoise();
     if (!this._match(TokenType.WORD, 'label')) return null;
     const textTok = this._expect(TokenType.TEXT);
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
     return new LabelStmt(textTok.value, textTok.line, textTok.column);
   }
 
   /** `Jump to the label "name".` */
   _parseJump() {
     this._skipNoise();
-    if (!this._match(TokenType.WORD, 'jump')) return null;
+    const jumpTok = this._match(TokenType.WORD, 'jump');
+    if (!jumpTok) return null;
     this._skipNoise(); // skip "to the"
     while (this._check(TokenType.WORD) &&
            this._current().value.toLowerCase() !== 'label') {
       this._advance(); // skip noise words
     }
     this._match(TokenType.WORD, 'label'); // consume "label"
-    const textTok = this._expect(TokenType.TEXT);
-    this._expect(TokenType.PERIOD);
-    return new JumpStmt(textTok.value, textTok.line, textTok.column);
+    let name;
+    if (this._check(TokenType.TEXT)) name = this._advance().value;
+    else if (this._check(TokenType.NUMBER)) name = String(this._advance().value);
+    else if (this._check(TokenType.WORD)) name = this._advance().value;
+    else {
+      const tok = this._current();
+      throw new SyntaxError(`Expected label name, got ${tok.type}`, tok.line, tok.column);
+    }
+    this._expectEnd();
+    return new JumpStmt(name, jumpTok.line, jumpTok.column);
   }
 
   /** `Using [verbName] parse { dslContent }` */
@@ -366,21 +534,35 @@ export class Parser {
     );
   }
 
-  /** `Execute the shell command "..."` */
+  /** `Execute the shell command "..."` or `Execute the command "..."` */
   _parseShellStmt() {
     this._skipNoise();
     const execTok = this._match(TokenType.WORD, 'execute');
     if (!execTok) return null;
 
-    // Match "the shell command" explicitly (no _skipNoise that would eat "the")
+    // Match "the shell command" or "the command"
     if (!this._match(TokenType.WORD, 'the')) return null;
     this._match(TokenType.WORD, 'shell');
     this._expect(TokenType.WORD, 'command');
 
     const cmdExpr = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
 
     return new ShellStmt(cmdExpr, execTok.line, execTok.column);
+  }
+
+  /** `Run the command "...".` (no pipe) */
+  _parseRunCommand() {
+    this._skipNoise();
+    const runTok = this._match(TokenType.WORD, 'run');
+    if (!runTok) return null;
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    this._match(TokenType.WORD, 'shell');
+    if (!this._match(TokenType.WORD, 'command')) return null;
+    const cmdExpr = this.parseExpression();
+    this._expectEnd();
+    return new ShellStmt(cmdExpr, runTok.line, runTok.column);
   }
 
   /** `Run the shell command "a" and pipe to "b".` */
@@ -400,7 +582,7 @@ export class Parser {
     this._skipNoise();
     this._match(TokenType.WORD, 'to');
     const cmd2 = this._parsePrimary();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
     return new PipeShellStmt(cmd1, cmd2, runTok.line, runTok.column);
   }
 
@@ -410,7 +592,7 @@ export class Parser {
     const inclTok = this._match(TokenType.WORD, 'include');
     if (!inclTok) return null;
     const pathExpr = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
     return new IncludeStmt(pathExpr, inclTok.line, inclTok.column);
   }
 
@@ -459,7 +641,7 @@ export class Parser {
     this._expect(TokenType.WORD, 'into');
 
     const varTok = this._expect(TokenType.WORD);
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
 
     return new ReadFileStmt(pathExpr, varTok.value, readTok.line, readTok.column);
   }
@@ -479,7 +661,7 @@ export class Parser {
     this._expect(TokenType.WORD, 'file');
 
     const pathExpr = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
 
     return new WriteFileStmt(valueExpr, pathExpr, writeTok.line, writeTok.column);
   }
@@ -494,7 +676,7 @@ export class Parser {
     this._match(TokenType.WORD, 'text');
     this._match(TokenType.WORD, 'inside');
     const varTok = this._expect(TokenType.WORD);
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
     return new ExecuteStmt(varTok.value, varTok.line, varTok.column);
   }
 
@@ -511,14 +693,13 @@ export class Parser {
 
     // Consume the type word
     this._advance();
-    // "named" is optional - accept "A Number X exists." or "A Number named X exists."
-    this._skipNoise();
+    // "named" is optional. Do not skipNoise here — a variable may be named A.
     this._match(TokenType.WORD, 'named');
-    this._skipNoise();
     if (!this._check(TokenType.WORD)) return null;
     const nameTok = this._advance();
-    this._skipNoise();
-    if (!this._match(TokenType.WORD, 'exists')) return null;
+    if (!this._match(TokenType.WORD, 'exists')) {
+      return null;
+    }
 
     // Check for heredoc initializer
     if (this._check(TokenType.HEREDOC)) {
@@ -531,49 +712,71 @@ export class Parser {
       return decl;
     }
 
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
     return new VariableDeclaration(
       typeTok.value, nameTok.value,
       typeTok.line, typeTok.column
     );
   }
 
-  /** `X is expr.` or `Entity's prop is expr.` */
+  /** `X is expr.` or `Entity's prop is expr.` or `the Current Client's balance is 1.` */
   _parseAssignment() {
     const firstTok = this._current();
-    if (firstTok.type !== TokenType.WORD) {
-      return null;
-    }
+    if (firstTok.type !== TokenType.WORD) return null;
 
-    let entity = null;
-    let target;
-
-    // Look ahead for possessive
-    if (this._peek(1)?.type === TokenType.POSSESSIVE) {
-      entity = firstTok.value;
-      this._advance(); // consume entity name
-      this._advance(); // consume 's
-      target = this._expect(TokenType.WORD).value;
-    } else if (this._peek(1)?.type === TokenType.WORD &&
-               this._peek(1)?.value.toLowerCase() === 'is') {
-      target = firstTok.value;
-      this._advance(); // consume target
-    } else {
-      return null;
-    }
+    const dest = this._parseAssignTarget();
+    if (!dest) return null;
 
     this._skipNoise();
-    this._expect(TokenType.WORD, 'is');
+    if (!this._match(TokenType.WORD, 'is')) return null;
 
     this._skipNoise();
     const value = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
 
-    // REMOVE AFTER DEBUG: console.log(`_parseAssignment: returning Assignment(${target}, ...)`);
     return new Assignment(
-      entity, target, value,
+      dest.entity, dest.target, value,
       firstTok.line, firstTok.column
     );
+  }
+
+  /**
+   * Parse `the Current Client's balance` or `X` or `Alice's age`.
+   * Leaves the stream at `is` / `to` / `by` on success.
+   */
+  _parseAssignTarget() {
+    const saved = this.pos;
+    const words = [];
+    const peekIsBinder = () => {
+      const p = this._peek(1);
+      if (!p) return false;
+      if (p.type === TokenType.POSSESSIVE) return true;
+      if (p.type === TokenType.WORD && ['is', 'to', 'by'].includes(p.value.toLowerCase())) return true;
+      return false;
+    };
+    if (this._check(TokenType.WORD, 'the') && !peekIsBinder()) this._advance();
+    else if (this._check(TokenType.WORD, 'a') && !peekIsBinder()) this._advance();
+    else if (this._check(TokenType.WORD, 'an') && !peekIsBinder()) this._advance();
+
+    while (this._check(TokenType.WORD)) {
+      const w = this._current().value.toLowerCase();
+      if (w === 'is' || w === 'to' || w === 'by') break;
+      words.push(this._advance().value);
+      if (this._check(TokenType.POSSESSIVE)) {
+        this._advance();
+        const prop = this._expect(TokenType.WORD).value;
+        return { entity: words.join(' '), target: prop };
+      }
+    }
+
+    if (words.length >= 1 &&
+        this._check(TokenType.WORD) &&
+        ['is', 'to', 'by'].includes(this._current().value.toLowerCase())) {
+      return { entity: null, target: words.join(' ') };
+    }
+
+    this.pos = saved;
+    return null;
   }
 
   /** `Print expr.` or `Print expr followed by expr.` */
@@ -583,10 +786,25 @@ export class Parser {
     if (!printTok) return null;
 
     this._skipNoise();
-    const expr = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    const parts = [this.parseExpression()];
+    while (!this._atStmtEnd() && this._current().type !== TokenType.DEDENT) {
+      const saved = this.pos;
+      try {
+        const next = this.parseExpression();
+        if (!next) break;
+        const space = new LiteralExpr('text', ' ', printTok.line, printTok.column);
+        const joined = new BinaryOpExpr(parts[parts.length - 1], 'followed_by', space,
+          printTok.line, printTok.column);
+        parts[parts.length - 1] = new BinaryOpExpr(joined, 'followed_by', next,
+          printTok.line, printTok.column);
+      } catch {
+        this.pos = saved;
+        break;
+      }
+    }
+    this._expectEnd();
 
-    return new PrintStmt(expr, printTok.line, printTok.column);
+    return new PrintStmt(parts[0], printTok.line, printTok.column);
   }
 
   /** `If expr: [block] (Otherwise: [block])? (Otherwise if expr: [block])*` */
@@ -692,24 +910,35 @@ export class Parser {
     const verbNameTok = this._expect(TokenType.WORD);
     const verbName = verbNameTok.value;
 
-    // Read parameters (WORDs before COLON, excluding articles)
-    const params = [];
+    // Typed slots: `a Client using an Amount` — types, not mere names.
+    const slots = [];
     while (this.pos < this.tokens.length &&
-           this._current().type === TokenType.WORD &&
-           this._current().value.toLowerCase() !== 'to') {
-      const paramWord = this._advance().value;
-      // Skip articles (a, an, the) in parameter list
-      const lower = paramWord.toLowerCase();
-      if (lower !== 'a' && lower !== 'an' && lower !== 'the') {
-        params.push(paramWord);
+           this._current().type === TokenType.WORD) {
+      let role = null;
+      const w = this._current().value.toLowerCase();
+      if (w === 'to' && this._peek(1)?.type === TokenType.COLON) break;
+      if (ROLE_FILLERS.has(w) && w !== 'and') {
+        role = this._advance().value;
+        this._match(TokenType.WORD, 'a');
+        this._match(TokenType.WORD, 'an');
+        this._match(TokenType.WORD, 'the');
+        if (!this._check(TokenType.WORD)) break;
+        slots.push({ role, type: this._advance().value });
+        continue;
       }
+      if (w === 'a' || w === 'an' || w === 'the') {
+        this._advance();
+        continue;
+      }
+      slots.push({ role: null, type: this._advance().value });
     }
 
+    const params = slots.map(s => s.type);
     const body = this.consumeBlock();
 
     return new VerbDefinition(
       verbName, params, body,
-      toTok.line, toTok.column
+      toTok.line, toTok.column, slots
     );
   }
 
@@ -725,7 +954,9 @@ export class Parser {
       'execute', 'a', 'an', 'the', 'inside', 'find', 'increase', 'lower',
       'decrease', 'set', 'result', 'whenever', 'named', 'exists',
       'contains', 'maps', 'followed', 'text', 'number', 'list',
-      'dictionary', 'account', 'system', 'user', 'value',
+      'dictionary', 'account', 'user', 'value',
+      'make', 'change', 'copy', 'rename', 'touch', 'append', 'run',
+      'call', 'keep', 'with', 'end',
     ]);
     if (keywords.has(lower)) return null;
 
@@ -740,13 +971,13 @@ export class Parser {
     // Read arguments (everything up to PERIOD, COLON, NEWLINE, or RPAREN)
     const args = [];
     while (this.pos < this.tokens.length &&
-           this._current().type !== TokenType.PERIOD &&
-           this._current().type !== TokenType.COLON &&
-           this._current().type !== TokenType.NEWLINE &&
-           this._current().type !== TokenType.RPAREN) {
-      // Skip noise words
+           !this._atStmtEnd() &&
+           this._current().type !== TokenType.DEDENT &&
+           this._current().type !== TokenType.DOT) {
+      // Skip noise words and role fillers (using/with/into/...)
       if (this._current().type === TokenType.WORD &&
-          NOISE.has(this._current().value.toLowerCase())) {
+          (NOISE.has(this._current().value.toLowerCase()) ||
+           ROLE_FILLERS.has(this._current().value.toLowerCase()))) {
         this._advance();
         continue;
       }
@@ -769,7 +1000,7 @@ export class Parser {
     if (this._check(TokenType.RPAREN)) {
       // Inside parenthesized expression, don't consume the RPAREN
     } else {
-      this._expect(TokenType.PERIOD);
+      this._expectEnd();
     }
 
     return new VerbCall(
@@ -795,7 +1026,7 @@ export class Parser {
     this._expect(TokenType.WORD, 'to');
 
     const value = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
 
     return new DictionarySetStmt(
       dictTok.value, key, value,
@@ -837,7 +1068,7 @@ export class Parser {
       items.push(this.parseExpression());
     }
 
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
 
     return new ListAddStmt(
       listTok.value, items,
@@ -870,7 +1101,7 @@ export class Parser {
     this._expect(TokenType.WORD, 'is');
 
     const value = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
 
     return new QueryStmt(
       typeTok.value, collTok.value, propTok.value, value,
@@ -938,8 +1169,90 @@ export class Parser {
     this._match(TokenType.WORD, 'the');
     this._match(TokenType.WORD, 'file');
     const pathExpr = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
     return new DeleteFileStmt(pathExpr, delTok.line, delTok.column);
+  }
+
+  /** `Make the directory "path".` */
+  _parseMkdir() {
+    const makeTok = this._match(TokenType.WORD, 'make');
+    if (!makeTok) return null;
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    if (!this._match(TokenType.WORD, 'directory') && !this._match(TokenType.WORD, 'dir')) return null;
+    const pathExpr = this.parseExpression();
+    this._expectEnd();
+    return new MkdirStmt(pathExpr, makeTok.line, makeTok.column);
+  }
+
+  /** `Change directory to "path".` */
+  _parseChdir() {
+    const chTok = this._match(TokenType.WORD, 'change');
+    if (!chTok) return null;
+    this._skipNoise();
+    if (!this._match(TokenType.WORD, 'directory') && !this._match(TokenType.WORD, 'dir')) return null;
+    this._skipNoise();
+    this._match(TokenType.WORD, 'to');
+    const pathExpr = this.parseExpression();
+    this._expectEnd();
+    return new ChdirStmt(pathExpr, chTok.line, chTok.column);
+  }
+
+  /** `Copy the file "from" to "to".` */
+  _parseCopyFile() {
+    const copyTok = this._match(TokenType.WORD, 'copy');
+    if (!copyTok) return null;
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    this._match(TokenType.WORD, 'file');
+    const fromExpr = this.parseExpression();
+    this._skipNoise();
+    this._expect(TokenType.WORD, 'to');
+    const toExpr = this.parseExpression();
+    this._expectEnd();
+    return new CopyFileStmt(fromExpr, toExpr, copyTok.line, copyTok.column);
+  }
+
+  /** `Rename the file "from" to "to".` */
+  _parseRenameFile() {
+    const renTok = this._match(TokenType.WORD, 'rename');
+    if (!renTok) return null;
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    this._match(TokenType.WORD, 'file');
+    const fromExpr = this.parseExpression();
+    this._skipNoise();
+    this._expect(TokenType.WORD, 'to');
+    const toExpr = this.parseExpression();
+    this._expectEnd();
+    return new RenameFileStmt(fromExpr, toExpr, renTok.line, renTok.column);
+  }
+
+  /** `Touch the file "path".` */
+  _parseTouchFile() {
+    const tTok = this._match(TokenType.WORD, 'touch');
+    if (!tTok) return null;
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    this._match(TokenType.WORD, 'file');
+    const pathExpr = this.parseExpression();
+    this._expectEnd();
+    return new TouchFileStmt(pathExpr, tTok.line, tTok.column);
+  }
+
+  /** `Append expr to the file "path".` */
+  _parseAppendFile() {
+    const apTok = this._match(TokenType.WORD, 'append');
+    if (!apTok) return null;
+    const valueExpr = this.parseExpression();
+    this._skipNoise();
+    this._expect(TokenType.WORD, 'to');
+    this._skipNoise();
+    this._match(TokenType.WORD, 'the');
+    this._expect(TokenType.WORD, 'file');
+    const pathExpr = this.parseExpression();
+    this._expectEnd();
+    return new AppendFileStmt(valueExpr, pathExpr, apTok.line, apTok.column);
   }
 
   /** `Increase/Lower/Set target by/to expr.` */
@@ -957,19 +1270,10 @@ export class Parser {
 
     this._advance(); // consume operation word
 
-    // Check for possessive pattern: `Lower Entity's prop by expr.`
-    let entity = null;
-    let target;
-
-    const targetTok = this._expect(TokenType.WORD);
-
-    if (this._check(TokenType.POSSESSIVE)) {
-      entity = targetTok.value;
-      this._advance(); // consume 's
-      target = this._expect(TokenType.WORD).value;
-    } else {
-      target = targetTok.value;
-    }
+    const dest = this._parseAssignTarget();
+    if (!dest) return null;
+    const entity = dest.entity;
+    const target = dest.target;
 
     this._skipNoise();
 
@@ -981,7 +1285,7 @@ export class Parser {
     }
 
     const value = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
 
     return new MutationStmt(
       operation, entity, target, value,
@@ -999,7 +1303,7 @@ export class Parser {
     this._expect(TokenType.WORD, 'is');
 
     const value = this.parseExpression();
-    this._expect(TokenType.PERIOD);
+    this._expectEnd();
 
     return new ResultStmt(value, resultTok.line, resultTok.column);
   }
@@ -1159,6 +1463,26 @@ export class Parser {
    * Structural words like "value", "for", "inside" are matched explicitly.
    */
   _parsePrimary() {
+    // Bare anaphors: it, there, here, those, others
+    if (this._check(TokenType.WORD)) {
+      const w = this._current().value.toLowerCase();
+      if (ANAPHOR_WORDS.has(w)) {
+        const tok = this._advance();
+        if (this._check(TokenType.POSSESSIVE)) {
+          this._advance();
+          const prop = this._expect(TokenType.WORD).value;
+          return new OfPropertyExpr(prop, new CorefExpr(w, [w], tok.line, tok.column), tok.line, tok.column);
+        }
+        return new CorefExpr(w, [w], tok.line, tok.column);
+      }
+    }
+
+    // `the ...` coreference, the number, the list of files, etc.
+    if (this._check(TokenType.WORD, 'the')) {
+      const theRef = this._tryParseTheRef();
+      if (theRef) return theRef;
+    }
+
     // Skip decorative articles only (a, an, the) UNLESS the next token
     // indicates this is actually a variable reference (followed by 's, "is", etc.)
     const savedPreSkip = this.pos;
@@ -1412,14 +1736,41 @@ export class Parser {
       }
     }
 
-    // Variable or property access
+    // `keep SOURCE where CONDITION`
+    if (tok.type === TokenType.WORD && tok.value.toLowerCase() === 'keep') {
+      this._advance();
+      const sourceExpr = this.parseExpression();
+      this._skipNoise();
+      this._expect(TokenType.WORD, 'where');
+      const condition = this.parseExpression();
+      return new KeepExpr(sourceExpr, condition, tok.line, tok.column);
+    }
+
+    // `dictionary of field is value and field is value`
+    if (tok.type === TokenType.WORD && tok.value.toLowerCase() === 'dictionary') {
+      this._advance();
+      this._skipNoise();
+      this._match(TokenType.WORD, 'of');
+      const pairs = [];
+      while (this._check(TokenType.WORD)) {
+        const key = this._advance().value;
+        this._skipNoise();
+        if (!this._match(TokenType.WORD, 'is')) break;
+        const val = this._parsePrimary();
+        pairs.push({ key, value: val });
+        this._skipNoise();
+        if (!this._match(TokenType.WORD, 'and')) break;
+      }
+      return new DictLiteralExpr(pairs, tok.line, tok.column);
+    }
+
+    // Variable or property access or `name of X`
     if (tok.type === TokenType.WORD) {
       const wordTok = this._advance();
 
       // Check for possessive: Entity's property
       if (this._check(TokenType.POSSESSIVE)) {
         this._advance(); // consume 's
-        // Skip decorative articles
         while (this._current().type === TokenType.WORD &&
                (this._current().value.toLowerCase() === 'a' ||
                 this._current().value.toLowerCase() === 'an' ||
@@ -1433,7 +1784,13 @@ export class Parser {
         );
       }
 
-      // Simple variable reference
+      // `name of entity`
+      if (this._check(TokenType.WORD, 'of')) {
+        this._advance();
+        const obj = this._parsePrimary();
+        return new OfPropertyExpr(wordTok.value, obj, wordTok.line, wordTok.column);
+      }
+
       return new VariableExpr(wordTok.value, wordTok.line, wordTok.column);
     }
 
@@ -1463,5 +1820,60 @@ export class Parser {
       [inner],     // pass the statement as argument for evaluation
       lparenTok.line, lparenTok.column
     );
+  }
+
+  /**
+   * `the number`, `the nearest number`, `the Active Admin`, `the Client's name`.
+   * Returns null if this `the` belongs to another form (output of, parsed JSON, ...).
+   */
+  _tryParseTheRef() {
+    const saved = this.pos;
+    const theTok = this._advance(); // consume "the"
+
+    // Defer to existing special forms
+    const next = this._current();
+    if (next.type === TokenType.WORD) {
+      const nl = next.value.toLowerCase();
+      if (['output', 'parsed', 'environment', 'fetched', 'sum', 'list', 'value'].includes(nl)) {
+        this.pos = saved;
+        return null;
+      }
+    }
+
+    // the nearest number / the number
+    if (this._check(TokenType.WORD, 'nearest')) {
+      this._advance();
+      this._match(TokenType.WORD, 'number');
+      return new CorefExpr('number', ['nearest', 'number'], theTok.line, theTok.column);
+    }
+    if (this._check(TokenType.WORD, 'number') &&
+        !(this._peek(1)?.type === TokenType.WORD && this._peek(1).value.toLowerCase() === 'of')) {
+      this._advance();
+      return new CorefExpr('number', ['number'], theTok.line, theTok.column);
+    }
+
+    const words = [];
+    while (this._check(TokenType.WORD) &&
+           !PHRASE_STOP.has(this._current().value.toLowerCase())) {
+      words.push(this._advance().value);
+      if (this._check(TokenType.POSSESSIVE)) {
+        this._advance();
+        const prop = this._expect(TokenType.WORD).value;
+        const obj = new CorefExpr('phrase', words, theTok.line, theTok.column);
+        return new OfPropertyExpr(prop, obj, theTok.line, theTok.column);
+      }
+    }
+
+    if (words.length === 0) {
+      this.pos = saved;
+      return null;
+    }
+
+    // `the using number` — role + type
+    if (words.length >= 2 && ROLE_FILLERS.has(words[0].toLowerCase())) {
+      return new CorefExpr('role', words, theTok.line, theTok.column);
+    }
+
+    return new CorefExpr('phrase', words, theTok.line, theTok.column);
   }
 }

@@ -66,7 +66,10 @@
 ### Low Priority
 - [ ] Module/import system: `Include "file.prose".`
 - [ ] User-defined types with blueprint definitions
-- [ ] Standard library (math, string, file I/O verbs)
+- [x] Standard library (math, string, list, dict, file I/O, shell verbs)
+- [x] Anaphora (it, there, here, those, others, the number)
+- [x] keep / those / others
+- [x] Dynamic entity graph and taught typed verbs
 - [ ] Debug mode with step-through execution
 - [ ] Source maps for error locations in dynamic code
 - [ ] Compile to JavaScript (transpiler)

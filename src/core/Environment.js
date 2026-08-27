@@ -13,6 +13,7 @@
 
 import { ReactiveWatcher } from './Value.js';
 import { ProseError } from './Errors.js';
+import { DiscourseState } from './Discourse.js';
 
 export class Environment {
   constructor(parent = null) {
@@ -26,6 +27,13 @@ export class Environment {
     this.labels = new Map();
     /** @type {ReactiveWatcher[]} */
     this.watchers = [];
+    /** @type {DiscourseState|null} owned by the root environment */
+    this.discourse = parent ? null : new DiscourseState();
+  }
+
+  /** @returns {DiscourseState} */
+  getDiscourse() {
+    return this.root().discourse;
   }
 
   // -----------------------------------------------------------------------
@@ -213,5 +221,7 @@ export class VerbDefinition {
     this.params = params;
     this.body = body;
     this.closure = closure;
+    /** @type {{ type: string, role: string|null }[]|null} typed slots for taught verbs */
+    this.slots = null;
   }
 }

@@ -18,6 +18,8 @@ export const TokenType = {
   LBRACE: 'LBRACE',       // {
   RBRACE: 'RBRACE',       // }
   POSSESSIVE: 'POSSESSIVE', // 's
+  DOT: 'DOT',               // method call: Entity.verb
+  BULLET: 'BULLET',         // markdown list marker -, *, +
 
   // Literals
   NUMBER: 'NUMBER',       // 42, 3.14
