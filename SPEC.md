@@ -967,7 +967,7 @@ The lexer's `_readString` detects `${var}` inside double-quoted strings and prod
 ```
 prose/
 ├── src/
-│   ├── index.js              CLI entry point (REPL or file mode)
+│   ├── index.js              CLI entry point (file mode; REPL disabled)
 │   ├── core/
 │   │   ├── Value.js          Runtime value types (Number, Text, Entity, List, Dictionary, Null, ShellResult)
 │   │   ├── Environment.js    Scope chain, verb/label/watcher registries
@@ -985,7 +985,7 @@ prose/
 │   │   └── Interpreter.js    Tree-walking evaluator with Goto, Whenever, Try/Catch, shell, file I/O
 │   └── shell/
 │       ├── Terminal.js       UI utilities (chalk, boxen, ora, figlet, gradient-string)
-│       └── Shell.js          Interactive REPL with history, completion, multi-line input
+│       └── Shell.js          File runner (interactive REPL currently disabled)
 ├── examples/                 Example .prose programs (9 files)
 ├── test/                     Test suite (Node.js native test runner)
 ├── dist/                     Build output (prose.exe via Bun compile)
@@ -1003,14 +1003,15 @@ prose/
 ### Development
 ```bash
 npm install          # Install TUI dependencies
-node src/index.js    # Start REPL
+node src/index.js examples/hello.prose   # Run a script
 npm test             # Run 16-test suite
 ```
+
+The interactive REPL is currently disabled (multiline input is buggy). See `TODO.md`.
 
 ### Standalone Executable
 ```bash
 npm run build        # Requires Bun: creates dist/prose.exe
-./dist/prose.exe
 ./dist/prose.exe examples/hello.prose
 ```
 

@@ -11,7 +11,6 @@ Print "Hello, ${Name}".
 
 ```bash
 npm install
-node src/index.js                  # interactive shell
 node src/index.js examples/hello.prose
 ```
 
@@ -23,12 +22,11 @@ npm run build
 ```
 
 ```
-prose                     Interactive shell
 prose <file.prose>        Run a file
 prose --help
 ```
 
-Type `.exit` to leave the shell. `.help` lists shell commands. Tab completes keywords.
+The interactive shell is currently disabled (multiline input is buggy). Run a `.prose` file instead.
 
 ## Two kinds of quotes
 

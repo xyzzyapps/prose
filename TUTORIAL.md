@@ -407,7 +407,7 @@ Using ProcessRules parse {
 | `.clear` | Clear the screen |
 | `.pwd` | Working directory |
 
-Tab completes. Up/down is history. A blank line ends a multi-line block.
+Tab indents 4 spaces on a blank continuation line, and completes keywords without dropping indent. Up/down is history. A blank line ends a multi-line block. Body lines after `:` are indented if you leave them at column 0. `Otherwise` / `Catch` stay at column 0.
 
 ---
 

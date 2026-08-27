@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Prose language interpreter and interactive shell.
+ * Prose language interpreter.
  *
  * Usage:
- *   prose                    Start interactive REPL
  *   prose <file.prose>       Run a Prose source file
- *   prose --repl             Force REPL mode
  *   prose --run <file.prose> Run a file explicitly
  *   prose --help             Show help
+ *
+ * The interactive REPL is disabled until multiline input is fixed.
  */
 
 import * as path from 'node:path';
@@ -21,18 +21,23 @@ Prose v2.0
 A programming language that reads like English.
 
 Usage:
-  prose                        Start interactive REPL
   prose <file.prose>            Run a Prose source file
-  prose --repl                  Force REPL mode
   prose --run <file.prose>      Run a file explicitly
   prose --help, -h              Show this help
   prose --version, -v           Show version
 
 Examples:
-  prose                        Launch the interactive shell
   prose examples/hello.prose   Run the hello world example
   prose examples/bank.prose    Run the bank transaction example
+
+The interactive REPL is currently disabled (multiline input is buggy).
 `);
+}
+
+function printReplDisabled() {
+  console.error('Error: The interactive REPL is currently disabled (multiline input is buggy).');
+  console.error('Run a script: prose <file.prose>');
+  console.error('Use --help for usage information.');
 }
 
 function printVersion() {
@@ -42,12 +47,9 @@ function printVersion() {
 async function main() {
   const args = process.argv.slice(2);
 
-  // Parse arguments
   if (args.length === 0) {
-    // No arguments: start REPL
-    const shell = new Shell();
-    await shell.start();
-    return;
+    printHelp();
+    process.exit(1);
   }
 
   const firstArg = args[0];
@@ -63,9 +65,8 @@ async function main() {
   }
 
   if (firstArg === '--repl') {
-    const shell = new Shell();
-    await shell.start();
-    return;
+    printReplDisabled();
+    process.exit(1);
   }
 
   if (firstArg === '--run') {

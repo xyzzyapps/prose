@@ -24,7 +24,7 @@ import {
   showBanner, makePrompt, makeContPrompt,
   printSuccess, printInfo, printWarning, printError,
   printDivider, printBox, createSpinner,
-  createReadline, showSourceContext,
+  createReadline, showSourceContext, applyReplContinuation,
 } from './Terminal.js';
 import chalk from 'chalk';
 
@@ -46,6 +46,10 @@ export class Shell {
     this._multilineBuffer = null;
     /** @type {number} current indent for multiline */
     this._multilineIndent = 0;
+    /** @type {string|null} open heredoc terminator while collecting */
+    this._heredocTerm = null;
+    /** @type {boolean} */
+    this._handlingLine = false;
   }
 
   // -----------------------------------------------------------------------
@@ -53,6 +57,13 @@ export class Shell {
   // -----------------------------------------------------------------------
 
   async start() {
+    // Interactive REPL is disabled until multiline input is fixed. See TODO.md.
+    console.error('Error: The interactive REPL is currently disabled (multiline input is buggy).');
+    console.error('Run a script: prose <file.prose>');
+    process.exit(1);
+  }
+
+  async _startInteractive() {
     if (this._firstRun) {
       showBanner();
       this._firstRun = false;
@@ -63,7 +74,9 @@ export class Shell {
     // Store history externally since readline's built-in is limited
     this.rl.history = this.history;
 
-    this.rl.on('line', (line) => this._handleLine(line));
+    this.rl.on('line', (line) => {
+      void this._onLine(line);
+    });
     this.rl.on('close', () => {
       console.log(chalk.dim('\n  Goodbye.\n'));
       process.exit(0);
@@ -71,8 +84,7 @@ export class Shell {
 
     this.rl.on('SIGINT', () => {
       if (this._multilineBuffer !== null) {
-        // Cancel multi-line input
-        this._multilineBuffer = null;
+        this._clearMultiline();
         console.log(chalk.dim('\n  (cancelled)'));
         this._setMainPrompt();
       } else {
@@ -127,34 +139,72 @@ export class Shell {
   // Line handling
   // -----------------------------------------------------------------------
 
+  async _onLine(line) {
+    if (this._handlingLine) return;
+    this._handlingLine = true;
+    this.rl.pause();
+    try {
+      await this._handleLine(line);
+    } catch (e) {
+      this._printError(e);
+      this._setMainPrompt();
+    } finally {
+      this._handlingLine = false;
+      if (this.rl) this.rl.resume();
+    }
+  }
+
+  _clearMultiline() {
+    this._multilineBuffer = null;
+    this._multilineIndent = 0;
+    this._heredocTerm = null;
+  }
+
+  _noteHeredoc(line) {
+    if (this._heredocTerm) {
+      if (line.trim() === this._heredocTerm) this._heredocTerm = null;
+      return;
+    }
+    const m = line.match(/<<(\S+)\s*$/);
+    if (m) this._heredocTerm = m[1];
+  }
+
+  _promptContinuation() {
+    this.rl.setPrompt(makeContPrompt(this._multilineIndent));
+    this.rl.prompt();
+  }
+
   async _handleLine(line) {
-    // Strip BOM and other zero-width characters that may come from pipes
     const cleaned = line.replace(/^\uFEFF/, '').replace(/^\u200B/, '');
     const trimmed = cleaned.trim();
 
-    // In multi-line mode, collect lines
     if (this._multilineBuffer !== null) {
-      if (trimmed === '') {
-        // Blank line terminates multi-line block
+      if (this._heredocTerm) {
+        this._multilineBuffer += cleaned + '\n';
+        this._noteHeredoc(cleaned);
+        this._promptContinuation();
+        return;
+      }
+
+      const step = applyReplContinuation(cleaned, this._multilineIndent);
+      if (step.endBlock) {
         const fullText = this._multilineBuffer + '\n';
-        this._multilineBuffer = null;
-        this._multilineIndent = 0;
+        this._clearMultiline();
         await this._executeCode(fullText);
         this._setMainPrompt();
         return;
       }
-      // Detect indentation level
-      const indent = line.length - line.trimStart().length;
-      if (this._multilineIndent === 0 && indent > 0) {
-        this._multilineIndent = indent;
+
+      this._multilineIndent = step.indent;
+      if (step.text.trim().endsWith(':')) {
+        this._multilineIndent = step.indent + 4;
       }
-      this._multilineBuffer += line + '\n';
-      this.rl.setPrompt(makeContPrompt(this._multilineIndent || 2));
-      this.rl.prompt();
+      this._multilineBuffer += step.text + '\n';
+      this._noteHeredoc(step.text);
+      this._promptContinuation();
       return;
     }
 
-    // Dot-commands
     if (trimmed.startsWith('.')) {
       await this._handleCommand(trimmed);
       if (!this.rl) return;
@@ -167,24 +217,24 @@ export class Shell {
       return;
     }
 
-    // History
     this.history.push(trimmed);
     if (this.history.length > 1000) this.history.shift();
 
-    // Multi-line: line ends with colon
-    if (trimmed.endsWith(':')) {
-      this._multilineBuffer = line + '\n';
-      this._multilineIndent = 0;
-      this.rl.setPrompt(makeContPrompt(2));
-      this.rl.prompt();
+    const startsBlock = trimmed.endsWith(':');
+    const startsHeredoc = /<<\S+\s*$/.test(trimmed);
+
+    if (startsBlock || startsHeredoc) {
+      this._multilineBuffer = cleaned + '\n';
+      this._multilineIndent = startsBlock ? 4 : 0;
+      this._heredocTerm = null;
+      this._noteHeredoc(cleaned);
+      this._promptContinuation();
       return;
     }
 
-    // Single line execution - auto-append period if missing
-    if (!cleaned.trim().endsWith('.')) {
-      line = cleaned.trim() + '.';
-    }
-    await this._executeCode(line + '\n');
+    let stmt = cleaned.trim();
+    if (!stmt.endsWith('.')) stmt += '.';
+    await this._executeCode(stmt + '\n');
     this._setMainPrompt();
   }
 
@@ -275,8 +325,9 @@ export class Shell {
       `${chalk.bold.cyan('Tips')}`,
       '',
       `• Prose statements are English sentences ending with ${chalk.yellow('.')}`,
-      `• Lines ending with ${chalk.yellow(':')} start a multi-line block (end with blank line)`,
-      `• ${chalk.yellow('Tab')} completes dot-commands and Prose keywords`,
+      `• Lines ending with ${chalk.yellow(':')} start a multi-line block (blank line ends it)`,
+      `• Continuation lines are indented for you; ${chalk.yellow('Tab')} adds 4 spaces`,
+      `• ${chalk.yellow('Tab')} also completes keywords (indent is kept)`,
       `• ${chalk.yellow('Ctrl+C')} cancels multi-line input`,
       `• Variables defined in the REPL persist between lines`,
     ].join('\n');

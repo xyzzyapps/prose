@@ -15,6 +15,7 @@
  *  11. Heredoc and quotes
  *  12. Fail-fast vs recover
  *  13. Lexer details
+ *  14. REPL multiline editing
  *
  * Run: node --test test/test_language.js
  */
@@ -25,6 +26,7 @@ import { Lexer } from '../src/lexer/Lexer.js';
 import { Parser } from '../src/parser/Parser.js';
 import { Interpreter } from '../src/interpreter/Interpreter.js';
 import { SyntaxError, TypeError as ProseTypeError, RuntimeError } from '../src/core/Errors.js';
+import { completer, applyReplContinuation } from '../src/shell/Terminal.js';
 
 function runCode(source) {
   const lexer = new Lexer(source, '<test>');
@@ -316,5 +318,56 @@ describe('13. Lexer details', () => {
     const toks = new Lexer('1e-3 2.5E+2', '<t>').tokenize();
     const nums = toks.filter(t => t.type === 'NUMBER').map(t => t.value);
     assert.deepEqual(nums, ['1e-3', '2.5E+2']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14. REPL multiline editing
+// ---------------------------------------------------------------------------
+
+describe('14. REPL multiline editing', () => {
+  it('Tab on an empty line inserts 4 spaces', () => {
+    const [hits] = completer('');
+    assert.deepEqual(hits, ['    ']);
+  });
+
+  it('Tab on an indented empty line inserts 4 more spaces', () => {
+    const [hits] = completer('    ');
+    assert.deepEqual(hits, ['        ']);
+  });
+
+  it('keyword completion keeps leading indent', () => {
+    const [hits] = completer('    Pri');
+    assert.ok(hits.includes('    Print'));
+    assert.ok(hits.every(h => h.startsWith('    ')));
+  });
+
+  it('does not match every keyword on a blank continuation', () => {
+    const [hits] = completer('');
+    assert.equal(hits.length, 1);
+  });
+
+  it('auto-indents a body line with no spaces', () => {
+    const step = applyReplContinuation('Print "y".', 4);
+    assert.equal(step.text, '    Print "y".');
+    assert.equal(step.indent, 4);
+    assert.equal(step.endBlock, false);
+  });
+
+  it('blank line ends the block', () => {
+    const step = applyReplContinuation('', 4);
+    assert.equal(step.endBlock, true);
+  });
+
+  it('Otherwise stays at column 0', () => {
+    const step = applyReplContinuation('Otherwise:', 4);
+    assert.equal(step.text, 'Otherwise:');
+    assert.equal(step.indent, 0);
+  });
+
+  it('keeps spaces the user already typed', () => {
+    const step = applyReplContinuation('        Print "z".', 4);
+    assert.equal(step.text, '        Print "z".');
+    assert.equal(step.indent, 8);
   });
 });

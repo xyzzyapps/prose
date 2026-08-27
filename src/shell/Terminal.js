@@ -58,9 +58,9 @@ export function makePrompt() {
   return `${chalk.hex('#6c5ce7').bold('prose')} ${chalk.dim(displayPath)} ${chalk.hex('#a29bfe')('›')} `;
 }
 
-export function makeContPrompt(indent = 0) {
-  const spaces = ' '.repeat(indent);
-  return `${spaces}${chalk.dim('…')} `;
+export function makeContPrompt(_indent = 0) {
+  // Plain ASCII: ANSI + leading spaces desync the cursor on Windows readline.
+  return '... ';
 }
 
 // ---------------------------------------------------------------------------
@@ -135,36 +135,66 @@ const BUILTIN_COMMANDS = [
 ];
 
 const PROSE_KEYWORDS = [
-  'Print', 'If', 'Otherwise', 'While', 'For', 'Every', 'To', 'Result',
+  'Print', 'If', 'Otherwise', 'While', 'For-Every', 'To', 'Result',
   'Label', 'Jump', 'Execute', 'A', 'An', 'named', 'exists',
   'Number', 'Text', 'List', 'Dictionary', 'User', 'Account',
   'Increase', 'Lower', 'Set', 'Keep', 'Call', 'With',
-  'Whenever', 'Using', 'Include',
+  'Whenever', 'Using', 'Include', 'Break', 'Continue', 'True', 'False', 'Not',
   'Read', 'Write', 'Delete', 'Make', 'Copy', 'Rename', 'Touch', 'Append',
   'Try', 'Catch', 'Run',
   'Uppercase', 'Lowercase', 'Length', 'Split', 'Join', 'Replace',
 ];
 
+/**
+ * Tab completion. Empty / whitespace-only lines get 4 more spaces (indent).
+ * Leading indent is kept on keyword hits so continuation lines stay indented.
+ */
 export function completer(line) {
-  const trimmed = line.trimStart();
+  const leadWs = (line.match(/^[ \t]*/) || [''])[0];
+  const trimmed = line.slice(leadWs.length);
+
+  if (!trimmed) {
+    return [[leadWs + '    '], line];
+  }
+
   const hits = [];
 
   if (trimmed.startsWith('.')) {
     for (const cmd of BUILTIN_COMMANDS) {
-      if (cmd.startsWith(trimmed)) hits.push(cmd);
+      if (cmd.startsWith(trimmed)) hits.push(leadWs + cmd);
     }
   } else {
     const words = trimmed.split(/\s+/);
     const lastWord = words[words.length - 1] || '';
+    const beforeLast = trimmed.slice(0, trimmed.length - lastWord.length);
     for (const kw of PROSE_KEYWORDS) {
       if (kw.toLowerCase().startsWith(lastWord.toLowerCase())) {
-        const prefix = trimmed.slice(0, -lastWord.length);
-        hits.push(prefix + kw);
+        hits.push(leadWs + beforeLast + kw);
       }
     }
   }
 
   return [hits.length ? hits : [], line];
+}
+
+/** Lines that stay at the current outer indent in a REPL block. */
+const REPL_DEDENT_HEADS = /^(Otherwise|Catch)\b/;
+
+/**
+ * Indent a continuation line for an indented Prose block.
+ * @returns {{ text: string, indent: number, endBlock: boolean }}
+ */
+export function applyReplContinuation(line, blockIndent) {
+  const trimmed = line.trim();
+  if (trimmed === '') {
+    return { text: line, indent: 0, endBlock: true };
+  }
+  const indent = line.length - line.trimStart().length;
+  if (indent === 0 && !REPL_DEDENT_HEADS.test(trimmed)) {
+    const pad = blockIndent > 0 ? blockIndent : 4;
+    return { text: ' '.repeat(pad) + trimmed, indent: pad, endBlock: false };
+  }
+  return { text: line, indent, endBlock: false };
 }
 
 // ---------------------------------------------------------------------------
