@@ -1,6 +1,6 @@
 # Anaphora, keep, entity graph, and taught verbs
 
-Set u1 to dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balance is 10.
+Set u1 to Dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balance is 10.
 Print name of the Active Admin.
 Call the Active Admin the Current Client.
 Print it's name.
@@ -9,7 +9,7 @@ Print balance of u1.
 
 A List named Scores exists.
 Scores contains 1, 2, and 9.
-Keep Scores where _item is greater than 5.
+Keep Scores filtered-by _ > 5.
 Print those.
 Print others.
 

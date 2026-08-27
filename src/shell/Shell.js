@@ -197,7 +197,7 @@ export class Shell {
     try {
       const lexer = new Lexer(code, '<repl>');
       const tokens = lexer.tokenize();
-      const parser = new Parser(tokens);
+      const parser = new Parser(tokens, { recover: true });
       const program = parser.parse();
       const result = this.interpreter.interpret(program);
 

@@ -4,6 +4,14 @@ Prose programs are English sentences. Most statements end with a period. A newli
 
 Start the shell with `node src/index.js`. Run a file with `node src/index.js examples/hello.prose`. Type `.exit` to quit.
 
+Keywords and verbs begin with a capital letter (`Print`, `If`, `To Double`, `Uppercase`). Articles and prepositions do not (`a`, `the`, `of`, `to`). Variables stay small: `score`, `myScore`, `my_score`, `my-score`.
+
+`x-y` is one name. `x - y` subtracts. Always space around `-` `+` `*` `/` when they are operators.
+
+Use parentheses for order: `Print (2 + 3) * 4.` — there is no hidden precedence.
+
+`True` and `False` are `1` and `0`. `Not` / `!` negate. `.` is a field (`Ada.age`), never a method.
+
 ---
 
 ## 1. Quotes
@@ -44,7 +52,7 @@ Print:
 ```
 Print Name.
 Print "Hello, ${Name}! You are ${Age}".
-Print "Hello" followed by " world".
+Print "Hello" + " world".
 ```
 
 Change numbers:
@@ -61,9 +69,13 @@ Set Age to 21.
 
 ```
 X is 5 plus 3.
-X is 10 minus 4.
-X is 3 times 7.
-X is 20 divided by 4.
+X is 5 + 3.
+X is 10 - 4.
+X is 3 * 7.
+X is 20 / 4.
+Print "Hi" + " there".
+If Score >= 80:
+    Print "A".
 ```
 
 Comparisons: `is greater than`, `is less than`, `is equal to`, `is not equal to`, `is greater than or equal to`, `is less than or equal to`. Combine with `and` / `or`.
@@ -71,7 +83,7 @@ Comparisons: `is greater than`, `is less than`, `is equal to`, `is not equal to`
 ```
 If Score is greater than or equal to 80:
     Print "Grade: A".
-Otherwise if Score is greater than or equal to 70:
+Otherwise If Score is greater than or equal to 70:
     Print "Grade: B".
 Otherwise:
     Print "Grade: F".
@@ -88,10 +100,10 @@ If Age is greater than 18 and Score is greater than 60:
 While Counter is less than 5:
     Increase Counter by 1.
 
-For every Number from 1 to 10:
+For Every Number from 1 to 10:
     Print _index.
 
-For every User in Staff:
+For Every User in Staff:
     Print User's name.
 ```
 
@@ -120,18 +132,18 @@ Find every User in Staff whose role is "Administrator".
 A List named Scores exists.
 Scores contains 10, 20, and 30.
 
-To double N:
-    Result is N times 2.
+To Double a Number:
+    Result is the Number times 2.
 
-Doubled is every item in Scores transformed by double.
-Big is every item in Scores where _item is greater than 15.
+Doubled is Scores transformed-by Double.
+Big is Scores filtered-by _ > 15.
 Print the sum of Scores.
 ```
 
 Keep splits a list into `those` (kept) and `others` (dropped):
 
 ```
-Keep Scores where _item is greater than 15.
+Keep Scores filtered-by _ > 15.
 Print those.
 Print others.
 ```
@@ -139,9 +151,9 @@ Print others.
 Built-in verbs (side-notes in parentheses): `push`, `pop`, `shift`, `unshift`, `sort`, `first`, `last`, `unique`, `slice`, `splice`, `join`, `length`.
 
 ```
-Print (push Scores 40).
-Print (sort Scores).
-Print (join Scores ",").
+Print (Push Scores 40).
+Print (Sort Scores).
+Print (Join Scores ",").
 ```
 
 ---
@@ -157,7 +169,7 @@ Print the value for "Japan" inside Capitals.
 Or a literal:
 
 ```
-Set u1 to dictionary of type is "User" and name is "Alice" and balance is 10.
+Set u1 to Dictionary of type is "User" and name is "Alice" and balance is 10.
 Print name of u1.
 ```
 
@@ -170,9 +182,9 @@ Verbs: `keys`, `values`, `haskey`, `deletekey`, `dictsize`, `merge`.
 Double quotes only.
 
 ```
-Shout is (uppercase "hello").
-Quiet is (lowercase "HELLO").
-Part is (substr "abcdef" 1 3).
+Shout is (Uppercase "hello").
+Quiet is (Lowercase "HELLO").
+Part is (Substr "abcdef" 1 3).
 Fixed is (replace "a-b-c" "-" "/").
 ```
 
@@ -203,7 +215,7 @@ Tests: `fileexists`, `isfile`, `isdir`, `isreadable`, `iswritable`, `isexecutabl
 
 ```
 Write "z" to the file "notes.txt".
-Print (cat there).
+Print (Cat there).
 ```
 
 `With` sets `there` for a block:
@@ -241,13 +253,15 @@ Page is the fetched content of the url "https://example.com".
 ## 11. Verbs
 
 ```
-To double N:
-    Result is N times 2.
+To Double a Number:
+    Result is the Number times 2.
 
-To Greet Person:
-    Print "Hello, ${Person}".
+To Greet a Person:
+    Print "Hello, " followed by the Person's name.
 
-Greet "Ada".
+A Person named Ada exists.
+Ada's name is "Ada".
+Greet Ada.
 Print (double 21).
 ```
 
@@ -296,7 +310,7 @@ Print here.
 A dictionary assigned to a name is an entity. `the Active Admin` finds the most recent dictionary whose fields include those words (`status` is Active, `role` is Admin, or `type` is Admin). Two equally recent matches are a coreference error.
 
 ```
-Set u1 to dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balance is 10.
+Set u1 to Dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balance is 10.
 Print name of the Active Admin.
 Call the Active Admin the Current Client.
 Set the Current Client's balance to 250.
@@ -368,8 +382,8 @@ Every 2 seconds:
 Raw text for another verb:
 
 ```
-To ProcessRules Source:
-    Print Source.
+To ProcessRules a Text:
+    Print the Text.
 
 Using ProcessRules parse {
     build: main.o
@@ -409,11 +423,10 @@ Tab completes. Up/down is history. A blank line ends a multi-line block.
 | Math | `X is 5 plus 3.` |
 | If / else | `If X is greater than 5:` … `Otherwise:` |
 | While | `While X is less than 5:` |
-| Count | `For every Number from 1 to 10:` |
-| Verb | `To Greet Person:` … `Greet "Ada".` |
-| Typed verb | `To Settle a Client:` … `Settle the Current Client.` |
+| Count | `For Every Number from 1 to 10:` |
+| Verb | `To Greet a Person:` … `the Person` in the body … `Greet Ada.` |
 | List | `Scores contains 1, 2, and 3.` |
-| Keep | `Keep Scores where _item is greater than 1.` |
+| Keep | `Keep Scores filtered-by _ > 1.` |
 | File | `Write "hi" to the file "f.txt".` |
 | Capture command | `` Out is `dir`. `` |
 | Last value | `Print it.` |

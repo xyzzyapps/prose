@@ -3,8 +3,8 @@
 
 # --- DSL Block Example: Simple Make-like rule parser ---
 
-To ProcessRules a Source:
-    Print "Processing DSL rules:" followed by Source.
+To ProcessRules a Text:
+    Print "Processing DSL rules:" followed by the Text.
     Print "Rule count: 3 items processed".
     Print "DSL parsed successfully".
 

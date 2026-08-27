@@ -23,9 +23,9 @@ Score is 85.
 
 If Score is greater than or equal to 80:
     Print "Grade: A".
-Otherwise if Score is greater than or equal to 70:
+Otherwise If Score is greater than or equal to 70:
     Print "Grade: B".
-Otherwise if Score is greater than or equal to 60:
+Otherwise If Score is greater than or equal to 60:
     Print "Grade: C".
 Otherwise:
     Print "Grade: F".

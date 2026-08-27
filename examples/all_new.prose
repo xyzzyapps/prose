@@ -14,16 +14,16 @@ Print "User home: " followed by Home.
 
 # --- String Builtins (via side-note calls) ---
 A Text named Shout exists.
-Shout is (uppercase "hello world").
+Shout is (Uppercase "hello world").
 Print Shout.
 
 A Text named Quiet exists.
-Quiet is (lowercase "HELLO WORLD").
+Quiet is (Lowercase "HELLO WORLD").
 Print Quiet.
 
 # --- For-Range Loop ---
 Print "Counting 1 to 5:".
-For every Number from 1 to 5:
+For Every Number from 1 to 5:
     Print _index.
 
 # --- Pipe Shell ---

@@ -194,6 +194,41 @@ export class Lexer {
         continue;
       }
 
+      // Heredoc: <<TERMINATOR
+      if (this.source[this.pos] === '<' && this.source[this.pos + 1] === '<') {
+        this._readChevronHeredoc();
+        continue;
+      }
+
+      // Two-character operators
+      const two = this.source.slice(this.pos, this.pos + 2);
+      if (two === '>=' || two === '<=' || two === '==' || two === '!=') {
+        this._advance();
+        this._advance();
+        this._emit(TokenType.OPERATOR, two);
+        continue;
+      }
+
+      // Single-character operators (not bullet: those are "- " at line start)
+      if (this.source[this.pos] === '[') {
+        this._advance();
+        this._emit(TokenType.LBRACKET, '[');
+        continue;
+      }
+      if (this.source[this.pos] === ']') {
+        this._advance();
+        this._emit(TokenType.RBRACKET, ']');
+        continue;
+      }
+
+      const ch = this.source[this.pos];
+      if (ch === '+' || ch === '-' || ch === '*' || ch === '/' || ch === '%' ||
+          ch === '>' || ch === '<' || ch === '=' || ch === '!') {
+        this._advance();
+        this._emit(TokenType.OPERATOR, ch);
+        continue;
+      }
+
       // Number (including decimals)
       if (this._isDigit(this.source[this.pos])) {
         this._readNumber();
@@ -530,6 +565,58 @@ export class Lexer {
     this._emit(TokenType.HEREDOC, value, startLine, startCol);
   }
 
+  /** `<<END` then body lines until a line starting with END. */
+  _readChevronHeredoc() {
+    const startLine = this.line;
+    const startCol = this.column;
+    this._advance(); // <
+    this._advance(); // <
+    this._advanceWhitespace();
+    let terminator = '';
+    while (this.pos < this.source.length && this._isWordChar(this.source[this.pos])) {
+      terminator += this.source[this.pos];
+      this._advance();
+    }
+    if (!terminator) {
+      throw new SyntaxError('Expected terminator after <<', startLine, startCol);
+    }
+    this._skipToEndOfLine();
+    if (this.pos < this.source.length && this._isNewline(this.source[this.pos])) {
+      this._advanceLine();
+    }
+    let value = '';
+    while (this.pos < this.source.length) {
+      let firstWord = '';
+      let wp = this.pos;
+      while (wp < this.source.length && this._isWordChar(this.source[wp])) {
+        firstWord += this.source[wp];
+        wp++;
+      }
+      if (firstWord === terminator) {
+        this.pos = wp;
+        this._skipToEndOfLine();
+        if (this.pos < this.source.length && this._isNewline(this.source[this.pos])) {
+          this._advanceLine();
+        }
+        break;
+      }
+      let lineContent = '';
+      while (this.pos < this.source.length && !this._isNewline(this.source[this.pos])) {
+        lineContent += this.source[this.pos];
+        this._advance();
+      }
+      if (value.length > 0) value += '\n';
+      value += lineContent;
+      if (this.pos < this.source.length && this._isNewline(this.source[this.pos])) {
+        this._advanceLine();
+      } else {
+        break;
+      }
+    }
+    this._emit(TokenType.HEREDOC, value, startLine, startCol);
+    this._emit(TokenType.NEWLINE, '\n');
+  }
+
   _readNumber() {
     const startCol = this.column;
     let value = '';
@@ -549,6 +636,27 @@ export class Lexer {
           value += this.source[this.pos];
           this._advance();
         }
+      }
+    }
+    // Scientific exponent: 1e-3, 2.5E+10
+    if (this.pos < this.source.length &&
+        (this.source[this.pos] === 'e' || this.source[this.pos] === 'E')) {
+      const expPos = this.pos;
+      let exp = this.source[this.pos];
+      const afterE = this.pos + 1 < this.source.length ? this.source[this.pos + 1] : '';
+      let digitsStart = this.pos + 1;
+      if (afterE === '+' || afterE === '-') digitsStart = this.pos + 2;
+      if (digitsStart < this.source.length && this._isDigit(this.source[digitsStart])) {
+        this._advance(); // e
+        if (this.source[this.pos] === '+' || this.source[this.pos] === '-') {
+          exp += this.source[this.pos];
+          this._advance();
+        }
+        while (this.pos < this.source.length && this._isDigit(this.source[this.pos])) {
+          exp += this.source[this.pos];
+          this._advance();
+        }
+        value += exp;
       }
     }
     this._emit(TokenType.NUMBER, value, this.line, startCol);
@@ -742,7 +850,9 @@ export class Lexer {
 
   _isDigit(ch) { return ch >= '0' && ch <= '9'; }
   _isAlpha(ch) { return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch === '_'; }
-  _isWordStart(ch) { return this._isAlpha(ch); }
-  _isWordChar(ch) { return this._isAlpha(ch) || this._isDigit(ch); }
+  _isWordStart(ch) { return this._isAlpha(ch) || ch === '_'; }
+  _isWordChar(ch) {
+    return this._isAlpha(ch) || this._isDigit(ch) || ch === '_' || ch === '-';
+  }
   _isNewline(ch) { return ch === '\n' || ch === '\r'; }
 }

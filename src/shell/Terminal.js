@@ -135,21 +135,14 @@ const BUILTIN_COMMANDS = [
 ];
 
 const PROSE_KEYWORDS = [
-  'Print', 'If', 'Otherwise', 'While', 'For', 'To', 'Result',
+  'Print', 'If', 'Otherwise', 'While', 'For', 'Every', 'To', 'Result',
   'Label', 'Jump', 'Execute', 'A', 'An', 'named', 'exists',
   'Number', 'Text', 'List', 'Dictionary', 'User', 'Account',
-  'Increase', 'Lower', 'Set', 'by', 'to', 'from',
-  'Whenever', 'changes', 'Using', 'parse', 'Include',
-  'Read', 'Write', 'Delete', 'the', 'file', 'files', 'in',
-  'every', 'item', 'transformed', 'where', 'sum', 'of',
-  'Try', 'Catch', 'error', 'into',
-  'Run', 'shell', 'command', 'pipe', 'and',
-  'environment', 'variable', 'fetched', 'content', 'url',
-  'output', 'value', 'for', 'inside', 'followed',
-  'greater', 'less', 'than', 'equal', 'not', 'or',
-  'plus', 'minus', 'times', 'divided',
-  'is', 'contains', 'maps', 'whose', 'role',
-  'JSON', 'parsed',
+  'Increase', 'Lower', 'Set', 'Keep', 'Call', 'With',
+  'Whenever', 'Using', 'Include',
+  'Read', 'Write', 'Delete', 'Make', 'Copy', 'Rename', 'Touch', 'Append',
+  'Try', 'Catch', 'Run',
+  'Uppercase', 'Lowercase', 'Length', 'Split', 'Join', 'Replace',
 ];
 
 export function completer(line) {

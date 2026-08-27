@@ -33,7 +33,7 @@ Prose is a practical, declarative, and highly structured programming language de
 | `COMMA` | List separator | `,` |
 | `LPAREN` / `RPAREN` | Side-note delimiters | `(` `)` |
 | `LBRACE` / `RBRACE` | Not emitted; `{...}` becomes `BRACEBLOCK` | |
-| `DOT` | Method-call dot when `.` is immediately followed by a letter | `Client.settle` |
+| `DOT` | Field access when `.` is immediately followed by a letter | `Ada.age` |
 | `BULLET` | Markdown list marker at line start | `- `, `* `, `+ ` |
 | `INDENT` / `DEDENT` | Indentation change | (virtual tokens) |
 | `NEWLINE` | End of a source line | `\n` |
@@ -41,13 +41,20 @@ Prose is a practical, declarative, and highly structured programming language de
 | `BRACEBLOCK` | Raw text between `{ }` | DSL content |
 | `INTERPOLATED` | String with `${var}` | `"Hello, ${name}"` |
 
-Keywords and articles match **case-insensitively**. Identifiers keep their spelling for display; lookup is case-insensitive.
+**Capitalization (normative):**
+
+- **Keywords that open a statement or clause** start with a capital: `Print`, `If`, `Otherwise`, `Otherwise If`, `While`, `For Every`, `To`, `Result`, `Set`, `Increase`, `Label`, `Jump`, `Try`, `Catch`, `Keep`, `Call`, `Using`, `Include`, `Whenever`, `After`, `Every`, `A` / `An` (in declarations), `Inside`, `Find`, `Read`, `Write`, and the other file verbs.
+- **Verb names** start with a capital: `To Greet a Person:`, `Greet Ada.`, `(Uppercase "hi")`.
+- **Types** start with a capital: `Number`, `Person`, `Client`.
+- **Articles and prepositions** stay lowercase: `a`, `an`, `the`, `of`, `to`, `by`, `in`, `from`, `using` (as a role filler), `is`, `named`, `exists`.
+
+Lookup of names and verbs is still case-insensitive internally. The source form must use the capitals above. `print "hi".` is not a Print statement.
 
 ### 2.1.1 Statement terminators
 
 A statement ends at the first of: `PERIOD` (`.`), `NEWLINE`, `DEDENT`, `EOF`, or `RPAREN` (inside a side-note). A missing `.` at end of line is valid.
 
-A `.` immediately followed by a letter is `DOT` (method call), not a terminator. `1. Print` (digit, period, space) is a numbered list item. `3.14` is a number.
+A `.` immediately followed by a letter is `DOT` (field access: `Ada.age`), not a terminator. `1. Print` (digit, period, space) is a numbered list item. `3.14` is a number.
 
 ### 2.2 Indentation
 
@@ -79,6 +86,56 @@ The terminator is a custom word. Content is read verbatim until a line starting 
 | `` `command` `` | **Command**. Never a string. As a statement it runs; as an expression it captures stdout. |
 
 Do not put OS commands in double quotes. `"dir"` is the four-character string dir; `` `dir` `` is a shell command.
+
+### 2.8 Identifiers
+
+Variables may be **camelCase**, **snake_case**, or **kebab-case**, and usually start with a lowercase letter: `score`, `myScore`, `my_score`, `my-score`. Types and verb names stay Capitalized.
+
+Hyphens bind inside a word (`transformed-by` is one token). Put spaces around `-` when it means minus: `X - Y`.
+
+### 2.9 Compound keywords (kebab-case)
+
+Where English used several keywords, a single kebab-case word is preferred.
+
+| Verbose | Kebab / short |
+|---------|----------------|
+| `followed by` | `followed-by` or `+` |
+| `Every item in Scores transformed by Double` | `Scores transformed-by Double` |
+| `Every item in Scores where cond` | `Scores filtered-by cond` |
+| `is greater than` | `greater-than` or `>` |
+| `is less than` | `less-than` or `<` |
+| `is greater than or equal to` | `greater-or-equal` or `>=` |
+| `is less than or equal to` | `less-or-equal` or `<=` |
+| `is equal to` | `equal-to` or `==` |
+| `is not equal to` | `not-equal-to` or `!=` |
+| `divided by` | `divided-by` or `/` |
+| `plus` / `minus` / `times` | `+` `-` `*` |
+| `For Every` | `For-Every` |
+| `Otherwise If` | `Otherwise-If` |
+| `Find every User in Staff whose role is` | `Find User in Staff with-role` |
+| `A Text named Warning exists as follows until End` | `warning <<End` |
+| `Write X to the file "f"` | `Write X to "f"` |
+| `Read the file "f" into C` | `Read "f" into C` |
+
+`+` concatenates if either side is not a Number; otherwise it adds.
+
+There is **no operator precedence**. `2 + 3 * 4` is `((2+3)*4)`. Use parentheses: `(2 + 3) * 4`.
+
+`.` is **field access only** (`Ada.age`), never a method call. Call verbs as sentences: `Settle Ada`.
+
+`=` is an alias of `is` (assignment). Equality is `==` or `is equal to`.
+
+`True` / `False` are Numbers `1` and `0`. `Not` and `!` negate truthiness.
+
+Indexing: `xs at 0`, `item 0 of xs`, `xs[0]`. Filter item is `_`: `Scores filtered-by _ > 15`.
+
+`Break` / `Continue` work in `While`, `For-Every`, and range-for.
+
+Scientific numbers: `1.5e2`, `1e-3`.
+
+Parse errors **stop the run in files**. The REPL still skips to the next `.`.
+
+A custom verb type (`Client`) matches an Entity whose blueprint is Client, a Dictionary whose `type` is Client, or an entity aliased so the last word is Client (`Call u1 the Current Client`).
 
 Command escapes: `` \` ``, `\\`. Commands may not span lines.
 
@@ -220,16 +277,25 @@ Limited to 10,000 iterations for safety.
 ### 4.7 Iteration (For Every)
 
 ```
-For every [variable] in [list]:
+For Every [variable] in [list]:
     [statements...]
 ```
 
 ### 4.8 Verb Definition (Function)
 
+Slots are **types**, not parameter names. Inside the body, refer to the argument as `the Type` / `the Type's field` / `${Type}`.
+
 ```
-To [VerbName] [param1] [param2] ...:
-    [statements...]
+To Greet a Person:
+    Print "Hello, " followed by the Person.
+
+To Double a Number:
+    Result is the Number times 2.
 ```
+
+A type is a builtin (`Number`, `Text`, `List`, `Dictionary`) or a Capitalized name of at least two letters (`Person`, `Client`, `Amount`). Dummy names (`N`, `x`, `param`) are a syntax error.
+
+At the call, builtins are checked strictly (`To Double a Number` will not accept Text). A custom type (`Person`, `Client`) accepts an Entity or Dictionary; in the body that value is `the Person` / `the Client`. `Greet "Alice"` is a type error — greet a Person entity, not a string.
 
 Return value via `Result is [expression].`
 
@@ -360,9 +426,9 @@ Short-circuit evaluation: `and` stops at first false, `or` stops at first true.
 ```
 If condition1:
     ...
-Otherwise if condition2:
+Otherwise If condition2:
     ...
-Otherwise if condition3:
+Otherwise If condition3:
     ...
 Otherwise:
     ...
@@ -371,7 +437,7 @@ Otherwise:
 ### 4.23 For-Range Loops
 
 ```
-For every Number from 1 to 10:
+For Every Number from 1 to 10:
     Print _index.
 ```
 
@@ -447,7 +513,7 @@ Inside double-quoted strings, `${variable}` is replaced with the variable's stri
 
 ### 4.32 String Built-in Verbs
 
-Perl 4 / Tcl-inspired. Call as a sentence or a side-note: `(uppercase "hello")`.
+Perl 4 / Tcl-inspired. Call as a sentence or a side-note: `(Uppercase "hello")`.
 
 | Verb | Parameters | Description |
 |------|-----------|-------------|
@@ -516,7 +582,7 @@ Perl 4 hash operations.
 | `the Type` | Most recent entity of that type |
 
 ```
-Keep Scores where _item is greater than 5.
+Keep Scores filtered-by _ > 5.
 Print those.
 Print others.
 
@@ -531,7 +597,7 @@ Markdown bullets (`-`, `*`, `+`) and numbered items (`1. ...`) do not need a clo
 A dictionary assigned to a name is registered as an entity. `the Active Admin` finds the most recent dictionary whose fields include those words (`status` is Active, `role` is Admin, or `type` is Admin). If two equally recent entities match, the script stops with a coreference error.
 
 ```
-Set u1 to dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balance is 10.
+Set u1 to Dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balance is 10.
 Print name of the Active Admin.
 Call the Active Admin the Current Client.
 Set the Current Client's balance to 250.
@@ -542,7 +608,7 @@ Print balance of u1.
 
 ### 4.32e Teaching a verb
 
-`To Settle a Client:` names a new command. `Client` is a type, not a mere parameter name. The call supplies an entity; inside the body `the Client` / `the Client's …` corefers to that entity. Verb names and keywords follow the usual Prose capitals (`To`, `Set`, `Print`, `Settle`).
+`To Settle a Client:` names a new command. Every slot is a type. The call must supply a value of that type (`Number`/`Text`/`List`/`Dictionary`, or an Entity/Dictionary whose type/blueprint matches). Inside the body only type references work: `the Client`, `the Client's name`, `${Client}`.
 
 ```
 To Settle a Client:
@@ -560,12 +626,12 @@ More than one type: `To Charge a Client using an Amount:`. The filler is a **rol
 
 **Map** -- transform every item using a verb:
 ```
-Doubled is every item in Numbers transformed by double.
+Doubled is Every item in Numbers transformed by Double.
 ```
 
-**Filter** -- keep items matching a condition (item bound to `_item`):
+**Filter** -- keep items matching a condition (item bound to `_`):
 ```
-Big is every item in Numbers where _item is greater than 3.
+Big is Numbers filtered-by _ > 3.
 ```
 
 **Sum** -- numeric total of a list:
@@ -709,7 +775,7 @@ Returns the value mapped to the key. Returns empty text if not found.
 keep [list] where [condition]
 ```
 
-Same as the `Keep` statement. Binds `_item`, fills `those` / `others`.
+Same as the `Keep` statement. Binds `_`, fills `those` / `others`.
 
 ---
 
@@ -856,7 +922,7 @@ The parser includes error recovery: if a statement cannot be parsed, it skips to
 1. **No user-defined type/blueprint bodies**: `A User named Alice exists` is nominal; fields are ad hoc
 2. **No first-class boolean type**: Comparisons yield Number 1 or 0
 3. **Goto**: Labels are registered on the top-level statement list only. `Jump` inside a verb or indented block cannot target an inner label
-4. **Map stringifies**: `every item in L transformed by V` passes each item as Text to the verb
+4. **Map stringifies**: `Every item in L transformed by V` passes each item as Text to the verb
 5. **Parser recovery**: Unparsed statements skip to the next `.` and continue; programs with syntax errors may still run in part
 6. **Single-threaded**: No concurrency
 7. **HTTP fetch via subprocess**: Requires `node` on PATH; 15 s timeout

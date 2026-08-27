@@ -17,9 +17,9 @@ Print "After increase: ${Total}".
 Score is 85.
 If Score is greater than or equal to 90:
     Print "Grade: A".
-Otherwise if Score is greater than or equal to 80:
+Otherwise If Score is greater than or equal to 80:
     Print "Grade: B".
-Otherwise if Score is greater than or equal to 70:
+Otherwise If Score is greater than or equal to 70:
     Print "Grade: C".
 Otherwise:
     Print "Grade: F".
@@ -32,7 +32,7 @@ If Score is equal to 85:
 
 # --- 3. Loops ---
 Print "Counting 1 to 5:".
-For every Number from 1 to 5:
+For Every Number from 1 to 5:
     Print _index.
 
 Counter is 1.
@@ -44,23 +44,23 @@ While Counter is less than 3:
 A List Nums exists.
 Nums contains 10, 20, 30, 40, and 50.
 
-To double N:
-    Result is N times 2.
+To Double a Number:
+    Result is the Number times 2.
 
-Doubled is every item in Nums transformed by double.
+Doubled is Nums transformed-by Double.
 Print "Doubled: " followed by Doubled.
 
-Big is every item in Nums where _item is greater than 25.
+Big is Nums filtered-by _ > 25.
 Print "Big (>25): " followed by Big.
 
 SumResult is the sum of Nums.
 Print "Sum: " followed by SumResult.
 
 # --- 5. Strings ---
-Shout is (uppercase "hello").
+Shout is (Uppercase "hello").
 Print "Uppercase: " followed by Shout.
 
-Quiet is (lowercase "HELLO").
+Quiet is (Lowercase "HELLO").
 Print "Lowercase: " followed by Quiet.
 
 Fixed is (replace "a-b-c" "-" "/").

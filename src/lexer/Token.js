@@ -20,6 +20,9 @@ export const TokenType = {
   POSSESSIVE: 'POSSESSIVE', // 's
   DOT: 'DOT',               // method call: Entity.verb
   BULLET: 'BULLET',         // markdown list marker -, *, +
+  OPERATOR: 'OPERATOR',     // + - * / > < >= <= == != !
+  LBRACKET: 'LBRACKET',     // [
+  RBRACKET: 'RBRACKET',     // ]
 
   // Literals
   NUMBER: 'NUMBER',       // 42, 3.14

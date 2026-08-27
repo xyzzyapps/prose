@@ -70,11 +70,12 @@ export class Assignment extends Stmt {
    * @param {number} line
    * @param {number} column
    */
-  constructor(entity, target, value, line, column) {
+  constructor(entity, target, value, line, column, indexExpr = null) {
     super(line, column);
     this.entity = entity;
     this.target = target;
     this.value = value;
+    this.indexExpr = indexExpr;
   }
   nodeType() { return 'Assignment'; }
 }
@@ -147,7 +148,7 @@ export class ForEveryStmt extends Stmt {
   nodeType() { return 'ForEveryStmt'; }
 }
 
-/** `To verbName params: ...` */
+/** `To Greet a Person:` — params are types */
 export class VerbDefinition extends Stmt {
   /**
    * @param {string} name       verb name, e.g. "Greet"
@@ -804,7 +805,45 @@ export class WithStmt extends Stmt {
   nodeType() { return 'WithStmt'; }
 }
 
-/** `the Current Client.settle args` */
+/** Prefix `not` / `!` */
+export class UnaryExpr extends Expr {
+  constructor(op, operand, line, column) {
+    super(line, column);
+    this.op = op;
+    this.operand = operand;
+  }
+  nodeType() { return 'UnaryExpr'; }
+}
+
+/** `xs[0]` / `xs at 0` / `item 0 of xs` */
+export class IndexExpr extends Expr {
+  constructor(objectExpr, indexExpr, line, column) {
+    super(line, column);
+    this.objectExpr = objectExpr;
+    this.indexExpr = indexExpr;
+  }
+  nodeType() { return 'IndexExpr'; }
+}
+
+/** `Ada.age` — field only, never a method */
+export class FieldAccessExpr extends Expr {
+  constructor(objectExpr, field, line, column) {
+    super(line, column);
+    this.objectExpr = objectExpr;
+    this.field = field;
+  }
+  nodeType() { return 'FieldAccessExpr'; }
+}
+
+export class BreakStmt extends Stmt {
+  nodeType() { return 'BreakStmt'; }
+}
+
+export class ContinueStmt extends Stmt {
+  nodeType() { return 'ContinueStmt'; }
+}
+
+/** `the Current Client.settle args` (unused: `.` is field access) */
 export class MethodCallStmt extends Stmt {
   constructor(targetExpr, verbName, args, line, column) {
     super(line, column);

@@ -39,6 +39,8 @@ Type `.exit` to leave the shell. `.help` lists shell commands. Tab completes key
 
 They are not interchangeable. `"dir"` is text. `` `dir` `` runs a command.
 
+Keywords and verb names start with a capital: `Print`, `If`, `To Greet`, `(Uppercase "hi")`. Articles stay small: `a`, `the`, `of`. Variables stay small: `score`, `my-score`. `x-y` is a name; `x - y` subtracts. Use parentheses for order; `*` is not tighter than `+`.
+
 ```
 Print "Hello".
 `echo hello`.
@@ -57,10 +59,11 @@ If Age is greater than 18:
 Otherwise:
     Print "Minor".
 
-To Greet Person:
-    Print "Hello, ${Person}".
+To Greet a Person:
+    Print "Hello, " + the Person.
 
-Greet Name.
+A Person named Ada exists.
+Greet Ada.
 ```
 
 Save as `hello.prose` and run `node src/index.js hello.prose`.

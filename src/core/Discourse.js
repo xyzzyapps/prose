@@ -5,7 +5,7 @@
 import { NumberValue, TextValue, EntityValue, ListValue, DictionaryValue, NULL } from './Value.js';
 import { CoreferenceError } from './Errors.js';
 
-export const ANAPHORS = new Set(['it', 'there', 'here', 'those', 'others']);
+export const ANAPHORS = new Set(['it', 'there', 'here', 'those', 'others', '_']);
 
 export class DiscourseState {
   constructor() {
@@ -88,7 +88,7 @@ export class DiscourseState {
    */
   resolveAnaphor(kind, line = 0, column = 0) {
     const k = kind.toLowerCase();
-    if (k === 'it') {
+    if (k === 'it' || k === '_') {
       if (this.loopItem) return this.loopItem;
       if (this.it) return this.it;
       throw new CoreferenceError('Nothing for "it" to refer to', line, column);

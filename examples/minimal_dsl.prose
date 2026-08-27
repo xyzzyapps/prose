@@ -1,7 +1,7 @@
 # Minimal test for DSL + Shell
 
-To TestVerb a Param:
-    Print "Verb called with: " followed by Param.
+To TestVerb a Text:
+    Print "Verb called with: " followed by the Text.
 
 Using TestVerb parse {
     hello world

@@ -24,8 +24,9 @@ import {
   EnvVarExpr, FetchExpr, RangeForStmt, PipeShellStmt, IncludeStmt,
   MapExpr, FilterExpr, SumExpr, AfterStmt, EveryStmt, DeleteFileStmt, ListFilesExpr,
   MkdirStmt, ChdirStmt, CopyFileStmt, RenameFileStmt, TouchFileStmt, AppendFileStmt,
-  SequenceStmt, AliasStmt, KeepStmt, WithStmt, MethodCallStmt, NopStmt,
+  SequenceStmt, AliasStmt, KeepStmt, WithStmt, NopStmt,
   CorefExpr, OfPropertyExpr, DictLiteralExpr, KeepExpr,
+  UnaryExpr, IndexExpr, FieldAccessExpr, BreakStmt, ContinueStmt,
   LiteralExpr, VariableExpr, PropertyAccessExpr,
   BinaryOpExpr, CallExpr, DictionaryAccessExpr,
 } from '../parser/AST.js';
@@ -72,6 +73,9 @@ class ReturnSignal {
     this.value = value;
   }
 }
+
+class BreakSignal {}
+class ContinueSignal {}
 
 export class Interpreter {
   /**
@@ -176,6 +180,9 @@ export class Interpreter {
       case OfPropertyExpr: return this._evalOfProperty(expr);
       case DictLiteralExpr: return this._evalDictLiteral(expr);
       case KeepExpr: return this._evalKeep(expr);
+      case UnaryExpr: return this._evalUnary(expr);
+      case IndexExpr: return this._evalIndex(expr);
+      case FieldAccessExpr: return this._evalField(expr);
       default:
         throw new RuntimeError(
           `Unknown expression type: ${expr.constructor.name}`,
@@ -231,8 +238,9 @@ export class Interpreter {
       case AliasStmt: return this._execAlias(stmt);
       case KeepStmt: return this._execKeep(stmt);
       case WithStmt: return this._execWith(stmt);
-      case MethodCallStmt: return this._execMethodCall(stmt);
       case NopStmt: return NULL;
+      case BreakStmt: throw new BreakSignal();
+      case ContinueStmt: throw new ContinueSignal();
       case SequenceStmt:
         for (const s of stmt.statements) this.execute(s);
         return NULL;
@@ -334,7 +342,13 @@ export class Interpreter {
         return new NumberValue(this.stringify(left) !== this.stringify(right) ? 1 : 0);
 
       case 'plus':
-        return new NumberValue(this.toNumber(left) + this.toNumber(right));
+        if (left instanceof NumberValue && right instanceof NumberValue) {
+          return new NumberValue(left.value + right.value);
+        }
+        return new TextValue(this.stringify(left) + this.stringify(right));
+
+      case 'modulo':
+        return new NumberValue(this.toNumber(left) % this.toNumber(right));
 
       case 'minus':
         return new NumberValue(this.toNumber(left) - this.toNumber(right));
@@ -463,6 +477,20 @@ export class Interpreter {
       this.env.getDiscourse().registerEntity(value, stmt.entity ? null : stmt.target);
     }
 
+    if (stmt.indexExpr) {
+      const list = this.env.lookup(stmt.target);
+      if (!(list instanceof ListValue)) {
+        throw new TypeError(`"${stmt.target}" is not a List`, stmt.line, stmt.column);
+      }
+      const i = Math.trunc(this.toNumber(this.evaluate(stmt.indexExpr)));
+      const idx = i < 0 ? list.items.length + i : i;
+      if (idx < 0 || idx >= list.items.length) {
+        throw new RuntimeError(`Index ${i} out of range`, stmt.line, stmt.column);
+      }
+      list.items[idx] = value;
+      return value;
+    }
+
     if (stmt.entity) {
       const entity = this._resolveName(stmt.entity, stmt.line, stmt.column);
       if (!setProperty(entity, stmt.target, value)) {
@@ -542,7 +570,13 @@ export class Interpreter {
           stmt.line, stmt.column
         );
       }
-      this._executeBlock(stmt.body);
+      try {
+        this._executeBlock(stmt.body);
+      } catch (e) {
+        if (e instanceof ContinueSignal) continue;
+        if (e instanceof BreakSignal) break;
+        throw e;
+      }
     }
     return NULL;
   }
@@ -561,9 +595,16 @@ export class Interpreter {
     d.mentionCollection(collection);
     for (const item of collection.items) {
       this.env.define(stmt.iteratorVar, item);
+      this.env.define('_', item);
       d.loopItem = item;
       d.it = item;
-      this._executeBlock(stmt.body);
+      try {
+        this._executeBlock(stmt.body);
+      } catch (e) {
+        if (e instanceof ContinueSignal) continue;
+        if (e instanceof BreakSignal) break;
+        throw e;
+      }
     }
     d.loopItem = null;
     return NULL;
@@ -969,7 +1010,12 @@ export class Interpreter {
         if (seg.t === 'text') {
           result += seg.v;
         } else if (seg.t === 'var') {
-          const val = this.env.lookup(seg.n);
+          let val = null;
+          const n = seg.n;
+          if (n === '_' || ANAPHORS.has(n.toLowerCase())) {
+            try { val = this.env.getDiscourse().resolveAnaphor(n === '_' ? 'it' : n); } catch { val = this.env.lookup('_'); }
+          }
+          if (!val) val = this.env.lookup(n);
           result += val ? this.stringify(val) : '';
         }
       }
@@ -1015,7 +1061,14 @@ export class Interpreter {
 
     for (let i = from; i <= to; i++) {
       this.env.define('_index', new NumberValue(i));
-      this._executeBlock(stmt.body);
+      this.env.define('_', new NumberValue(i));
+      try {
+        this._executeBlock(stmt.body);
+      } catch (e) {
+        if (e instanceof ContinueSignal) continue;
+        if (e instanceof BreakSignal) break;
+        throw e;
+      }
     }
     return NULL;
   }
@@ -1056,7 +1109,12 @@ export class Interpreter {
     if (!(source instanceof ListValue)) throw new RuntimeError('Map requires a List', expr.line, expr.column);
     const result = new ListValue();
     for (const item of source.items) {
-      const mapped = this._callVerb(expr.verbName, [new LiteralExpr('text', this.stringify(item), 0, 0)], expr.line, expr.column);
+      this.env.define('_map_item', item);
+      const mapped = this._callVerb(
+        expr.verbName,
+        [new VariableExpr('_map_item', expr.line, expr.column)],
+        expr.line, expr.column
+      );
       result.push(mapped);
     }
     return result;
@@ -1067,9 +1125,11 @@ export class Interpreter {
     const source = this.evaluate(expr.sourceExpr);
     if (!(source instanceof ListValue)) throw new RuntimeError('Filter requires a List', expr.line, expr.column);
     const result = new ListValue();
+    const d = this.env.getDiscourse();
     for (const item of source.items) {
-      // Bind item as a variable for condition evaluation
+      this.env.define('_', item);
       this.env.define('_item', item);
+      d.loopItem = item;
       const cond = this.evaluate(expr.condition);
       if (this.isTruthy(cond)) result.push(item);
     }
@@ -1247,11 +1307,23 @@ export class Interpreter {
     const verbEnv = new Environment(def.closure);
 
     const slots = def.slots && def.slots.length ? def.slots : def.params.map(p => ({ type: p, role: null }));
-    for (let i = 0; i < slots.length && i < args.length; i++) {
+    if (args.length < slots.length) {
+      throw new TypeError(
+        `Verb "${verbName}" expects ${slots.map(s => s.type).join(', ')}`,
+        line, column
+      );
+    }
+    for (let i = 0; i < slots.length; i++) {
       const slot = slots[i];
       const arg = args[i];
+      if (!this._argMatchesType(arg, slot.type)) {
+        throw new TypeError(
+          `Verb "${verbName}" expected a ${slot.type}, got ${arg ? arg.typeName() : 'nothing'}`,
+          line, column
+        );
+      }
+      // Body refers by type: `the Person`, `Person's name`, `${Person}`
       verbEnv.define(slot.type, arg);
-      verbEnv.define(slot.type.toLowerCase(), arg);
       if (slot.role) {
         verbEnv.define(slot.role, arg);
         verbEnv.define(`${slot.role} number`, arg);
@@ -1276,6 +1348,73 @@ export class Interpreter {
     }
 
     return NULL;
+  }
+
+  _argMatchesType(arg, typeName) {
+    if (!arg) return false;
+    const t = typeName.toLowerCase();
+    if (t === 'number') return arg instanceof NumberValue;
+    if (t === 'text') return arg instanceof TextValue;
+    if (t === 'list') return arg instanceof ListValue;
+    if (t === 'dictionary') return arg instanceof DictionaryValue;
+    if (arg instanceof EntityValue && arg.blueprint.toLowerCase() === t) return true;
+    if (arg instanceof DictionaryValue) {
+      const ty = arg.get('type');
+      if (ty && this.stringify(ty).toLowerCase() === t) return true;
+    }
+    const rec = this.env.getDiscourse().entities.find(e => e.value === arg);
+    if (rec) {
+      if (rec.aliases.has(t)) return true;
+      for (const a of rec.aliases) {
+        const parts = a.split(/\s+/);
+        if (parts[parts.length - 1] === t) return true;
+      }
+    }
+    return false;
+  }
+
+  _evalUnary(expr) {
+    const v = this.evaluate(expr.operand);
+    if (expr.op === 'not') {
+      return new NumberValue(this.isTruthy(v) ? 0 : 1);
+    }
+    throw new RuntimeError(`Unknown unary op ${expr.op}`, expr.line, expr.column);
+  }
+
+  _evalIndex(expr) {
+    const obj = this.evaluate(expr.objectExpr);
+    const idxVal = this.evaluate(expr.indexExpr);
+    if (obj instanceof ListValue) {
+      let i = Math.trunc(this.toNumber(idxVal));
+      if (i < 0) i = obj.items.length + i;
+      if (i < 0 || i >= obj.items.length) {
+        throw new RuntimeError(`Index ${this.stringify(idxVal)} out of range`, expr.line, expr.column);
+      }
+      return obj.items[i];
+    }
+    if (obj instanceof TextValue) {
+      let i = Math.trunc(this.toNumber(idxVal));
+      if (i < 0) i = obj.value.length + i;
+      if (i < 0 || i >= obj.value.length) {
+        throw new RuntimeError(`Index out of range`, expr.line, expr.column);
+      }
+      return new TextValue(obj.value[i]);
+    }
+    if (obj instanceof DictionaryValue) {
+      const v = obj.get(this.stringify(idxVal));
+      return v ?? new TextValue('');
+    }
+    throw new TypeError('Cannot index this value', expr.line, expr.column);
+  }
+
+  _evalField(expr) {
+    const obj = this.evaluate(expr.objectExpr);
+    const val = getProperty(obj, expr.field);
+    if (val === null || val === undefined) {
+      throw new NameError(`No field "${expr.field}"`, expr.line, expr.column);
+    }
+    this._mentionValue(val);
+    return val;
   }
 
   _mentionValue(val) {
@@ -1345,6 +1484,7 @@ export class Interpreter {
     const dropped = new ListValue();
     const d = this.env.getDiscourse();
     for (const item of source.items) {
+      this.env.define('_', item);
       this.env.define('_item', item);
       d.loopItem = item;
       const cond = this.evaluate(condition);
@@ -1383,13 +1523,6 @@ export class Interpreter {
     d.it = target;
     this._executeBlock(stmt.body);
     return target;
-  }
-
-  _execMethodCall(stmt) {
-    const target = this.evaluate(stmt.targetExpr);
-    this.env.define('__method_target', target);
-    const liveArgs = [new VariableExpr('__method_target', stmt.line, stmt.column), ...stmt.args];
-    return this._callVerb(stmt.verbName, liveArgs, stmt.line, stmt.column);
   }
 
   // -----------------------------------------------------------------------

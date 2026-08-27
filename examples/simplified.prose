@@ -9,19 +9,19 @@ Name is "Prose".
 Print "Hello, ${Name}!".
 
 # --- Map: transform every item ---
-To double a Number:
-    Result is Number times 2.
+To Double a Number:
+    Result is the Number times 2.
 
 A List named Numbers exists.
 Numbers contains 1, 2, 3, 4, and 5.
 
 A List named Doubled exists.
-Doubled is every item in Numbers transformed by double.
+Doubled is Numbers transformed-by Double.
 Print "Doubled: " followed by Doubled.
 
 # --- Filter: keep items where condition ---
 A List named Big exists.
-Big is every item in Numbers where _item is greater than 2.
+Big is Numbers filtered-by _ > 2.
 Print "Big: " followed by Big.
 
 # --- Sum ---
