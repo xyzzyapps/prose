@@ -746,7 +746,7 @@ export class Parser {
     return new ExecuteStmt(varTok.value, varTok.line, varTok.column);
   }
 
-  /** `A Type named varName exists.` or `A Text named x exists as follows until TERM: ... TERM` */
+  /** `A Type named varName exists.` or `A Text named x exists as follows until TERM` */
   _parseVariableDecl() {
     // Match "A" or "An" directly before skipping noise (it's structural here)
     const articleTok = this._matchKw('A') || this._matchKw('An');

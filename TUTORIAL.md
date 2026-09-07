@@ -1,14 +1,14 @@
 # Prose Tutorial
 
-Prose programs are English sentences. Most statements end with a period. A newline is enough too (handy for markdown lists). Comments start with `#`. Blocks after a colon are indented.
+Prose programs are English sentences. Most statements end with a period. A newline is enough too (handy for markdown lists). Comments start with `#`. Blocks are indented. Do not write `:`.
 
 Start the shell with `node src/index.js`. Run a file with `node src/index.js examples/hello.prose`. Type `.exit` to quit. Periods are optional.
 
-Keywords and verbs begin with a capital letter (`Print`, `If`, `To Double`, `Uppercase`). Articles and prepositions do not (`a`, `the`, `of`, `to`). Variables stay small: `score`, `myScore`, `my_score`, `my-score`.
+Keywords and verbs begin with a capital letter (`Print`, `If`, `To Double`, `Uppercase`). Articles and prepositions do not (`a`, `the`, `of`, `to`). Variables stay small (`score`, `myScore`, `my_score`, `my-score`).
 
 `x-y` is one name. `x - y` subtracts. Always space around `-` `+` `*` `/` when they are operators.
 
-Use parentheses for order: `Print (2 + 3) * 4.` — there is no hidden precedence.
+Use parentheses for order. `Print (2 + 3) * 4.` — there is no hidden precedence.
 
 `True` and `False` are `1` and `0`. `Not` / `!` negate. `.` is a field (`ada.age`), never a method.
 
@@ -27,27 +27,27 @@ Print "Hello".
 listing is `dir`.
 ```
 
-Interpolation only works in strings: `"Hello, ${name}"`.
+Interpolation only works in strings, `"Hello, ${name}"`.
 
 ---
 
 ## 2. Variables and types
 
-Assigning creates the variable. Types: Number, Text, List, Dictionary, and named entities (User, Account, …).
+Assigning creates the variable. Types are Number, Text, List, Dictionary, and named entities (User, Account, …).
 
 ```
 x is 42.
 name is "Alice".
 A Number named age exists.
 age is 30.
-A Text named warning exists as follows until EndMsg:
+A Text named warning exists as follows until EndMsg
     All actions monitored.
 EndMsg
 ```
 
-`named` is optional: `A Number age exists.`
+`named` is optional. `A Number age exists.`
 
-Print:
+Print
 
 ```
 Print name.
@@ -55,7 +55,7 @@ Print "Hello, ${name}! You are ${age}".
 Print "Hello" + " world".
 ```
 
-Change numbers:
+Change numbers
 
 ```
 Increase age by 1.
@@ -79,7 +79,7 @@ If score >= 80
 If score >= 80 Print "A".
 ```
 
-Comparisons: `is greater than`, `is less than`, `is equal to`, `is not equal to`, `is greater than or equal to`, `is less than or equal to`. Combine with `and` / `or`.
+Comparisons are `is greater than`, `is less than`, `is equal to`, `is not equal to`, `is greater than or equal to`, `is less than or equal to`. Combine with `and` / `or`.
 
 ```
 If score is greater than or equal to 80
@@ -119,7 +119,7 @@ alice's role is "Administrator".
 Print alice's role.
 ```
 
-Declarative query:
+Declarative query
 
 ```
 Find every User in staff whose role is "Administrator".
@@ -141,7 +141,7 @@ big is scores filtered-by _ > 15.
 Print the sum of scores.
 ```
 
-Keep splits a list into `those` (kept) and `others` (dropped):
+Keep splits a list into `those` (kept) and `others` (dropped).
 
 ```
 Keep scores filtered-by _ > 15.
@@ -149,7 +149,7 @@ Print those.
 Print others.
 ```
 
-Built-in verbs (side-notes in parentheses): `push`, `pop`, `shift`, `unshift`, `sort`, `first`, `last`, `unique`, `slice`, `splice`, `join`, `length`.
+Built-in verbs (side-notes in parentheses) include `push`, `pop`, `shift`, `unshift`, `sort`, `first`, `last`, `unique`, `slice`, `splice`, `join`, `length`.
 
 ```
 Print (Push scores 40).
@@ -167,14 +167,14 @@ Inside capitals, "France" maps to "Paris".
 Print the value for "Japan" inside capitals.
 ```
 
-Or a literal:
+Or a literal
 
 ```
 Set u1 to Dictionary of type is "User" and name is "Alice" and balance is 10.
 Print name of u1.
 ```
 
-Verbs: `keys`, `values`, `haskey`, `deletekey`, `dictsize`, `merge`.
+Verbs include `keys`, `values`, `haskey`, `deletekey`, `dictsize`, `merge`.
 
 ---
 
@@ -189,7 +189,7 @@ part is (Substr "abcdef" 1 3).
 fixed is (Replace "a-b-c" "-" "/").
 ```
 
-Also: `length`, `split`, `join`, `index`, `rindex`, `chop`, `chomp`, `trim`, `reverse`, `repeat`, `sprintf`, `chr`, `ord`, `startswith`, `endswith`, `contains`.
+Also `length`, `split`, `join`, `index`, `rindex`, `chop`, `chomp`, `trim`, `reverse`, `repeat`, `sprintf`, `chr`, `ord`, `startswith`, `endswith`, `contains`.
 
 ---
 
@@ -210,7 +210,7 @@ Delete the file "notes.txt".
 files is the list of files in ".".
 ```
 
-Tests: `fileexists`, `isfile`, `isdir`, `isreadable`, `iswritable`, `isexecutable`, `filesize`, `isemptyfile`. Also `cat`, `glob`, `which`, `pwd`, `chdir`, `chmod`, `basename`, `dirname`.
+Tests include `fileexists`, `isfile`, `isdir`, `isreadable`, `iswritable`, `isexecutable`, `filesize`, `isemptyfile`. Also `cat`, `glob`, `which`, `pwd`, `chdir`, `chmod`, `basename`, `dirname`.
 
 `there` is the last file or folder mentioned. `here` is the current folder.
 
@@ -219,7 +219,7 @@ Write "z" to the file "notes.txt".
 Print (Cat there).
 ```
 
-`With` sets `there` for a block:
+`With` sets `there` for a block.
 
 ```
 With "notes.txt" then
@@ -242,7 +242,7 @@ listing is `dir`.
 listing is the output of the shell command `dir`.
 ```
 
-Environment and HTTP:
+Environment and HTTP
 
 ```
 home is the environment variable "HOME".
@@ -276,11 +276,11 @@ To Settle a Client
 Settle the Current Client.
 ```
 
-Roles: `To Charge a Client using an Amount`. Inside: `the Amount`, `the using number`. At the call, `using` / `with` / `into` / `from` / `by` / `as` / `to` / `and` may be written or left out.
+Roles use `To Charge a Client using an Amount`. Inside, `the Amount` and `the using number`. At the call, `using` / `with` / `into` / `from` / `by` / `as` / `to` / `and` may be written or left out.
 
 `Charge the Current Client using 50.`
 
-Parentheses are side-notes: they run a verb or expression and use the result.
+Parentheses are side-notes. They run a verb or expression and use the result.
 
 ---
 
@@ -322,14 +322,14 @@ Print balance of u1.
 
 ---
 
-## 14. Control: labels, lists, include, dynamic code
+## 14. Control, labels, lists, include, dynamic code
 
 ```
 Label "Retry".
 Jump to the label "Retry".
 ```
 
-Numbered markdown items are labels. Periods optional on list lines:
+Numbered markdown items are labels. Periods optional on list lines.
 
 ```
 1. Print "one"
@@ -346,14 +346,14 @@ snippet is "Print 1.".
 Execute the text inside snippet.
 ```
 
-JSON:
+JSON
 
 ```
 data is the parsed JSON of "{\"name\": \"Ada\"}".
 Print the value for "name" inside data.
 ```
 
-Errors:
+Errors
 
 ```
 Try
@@ -380,7 +380,7 @@ Every 2 seconds
     Print "Tick".
 ```
 
-Raw text for another verb:
+Raw text for another verb
 
 ```
 To ProcessRules a Text
@@ -408,7 +408,7 @@ Using ProcessRules parse {
 | `.clear` | Clear the screen |
 | `.pwd` | Working directory |
 
-The REPL is one statement per line. Same-line blocks work: `If x > 5 Print "yes" Otherwise Print "no"`. Tab completes keywords. Up/down is history.
+The REPL is one statement per line. Same-line blocks work (`If x > 5 Print "yes" Otherwise Print "no"`). Tab completes keywords. Up/down is history.
 
 ---
 

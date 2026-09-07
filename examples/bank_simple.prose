@@ -8,7 +8,7 @@ A Account named primary exists.
 primary's balance is 500.
 primary's owner is "Bob".
 
-A Text named warning-log exists as follows until EndLog:
+A Text named warning-log exists as follows until EndLog
     =========================================
     CRITICAL: Account values dropped below 0.
     Investigation mandatory.

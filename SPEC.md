@@ -71,7 +71,7 @@ The articles `a`, `an`, and `the` are decorative and skipped during parsing unle
 ### 2.5 Heredocs
 
 ```
-A Text named x exists as follows until TERMINATOR:
+A Text named x exists as follows until TERMINATOR
     content lines
 TERMINATOR
 ```
