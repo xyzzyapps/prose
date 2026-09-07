@@ -1,29 +1,29 @@
 # All New Features Demo
 
 # --- String Interpolation ---
-A Text named Name exists.
-Name is "Alice".
-A Number named Age exists.
-Age is 30.
-Print "Hello, ${Name}! You are ${Age} years old".
+A Text named name exists.
+name is "Alice".
+A Number named age exists.
+age is 30.
+Print "Hello, ${name}! You are ${age} years old".
 
 # --- Environment Variables ---
-A Text named Home exists.
-Home is the environment variable "USERPROFILE".
-Print "User home: " followed by Home.
+A Text named home exists.
+home is the environment variable "USERPROFILE".
+Print "User home: " followed by home.
 
 # --- String Builtins (via side-note calls) ---
-A Text named Shout exists.
-Shout is (Uppercase "hello world").
-Print Shout.
+A Text named shout exists.
+shout is (Uppercase "hello world").
+Print shout.
 
-A Text named Quiet exists.
-Quiet is (Lowercase "HELLO WORLD").
-Print Quiet.
+A Text named quiet exists.
+quiet is (Lowercase "HELLO WORLD").
+Print quiet.
 
 # --- For-Range Loop ---
 Print "Counting 1 to 5:".
-For Every Number from 1 to 5:
+For Every Number from 1 to 5
     Print _index.
 
 # --- Pipe Shell ---

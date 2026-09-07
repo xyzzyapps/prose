@@ -2,91 +2,91 @@
 # ==========================================
 
 # --- 1. Variables & Math ---
-Name is "Alice".
-Age is 30.
-Print "${Name} is ${Age} years old".
+name is "Alice".
+age is 30.
+Print "${name} is ${age} years old".
 
-Total is 100 plus 50.
-Tax is Total times 20 divided by 100.
-Print "Total: ${Total}, Tax: ${Tax}".
+total is 100 plus 50.
+tax is total times 20 divided by 100.
+Print "Total: ${total}, Tax: ${tax}".
 
-Increase Total by 1.
-Print "After increase: ${Total}".
+Increase total by 1.
+Print "After increase: ${total}".
 
 # --- 2. Conditionals ---
-Score is 85.
-If Score is greater than or equal to 90:
+score is 85.
+If score is greater than or equal to 90
     Print "Grade: A".
-Otherwise If Score is greater than or equal to 80:
+Otherwise If score is greater than or equal to 80
     Print "Grade: B".
-Otherwise If Score is greater than or equal to 70:
+Otherwise If score is greater than or equal to 70
     Print "Grade: C".
-Otherwise:
+Otherwise
     Print "Grade: F".
 
-If Age is greater than 18 and Score is greater than 60:
+If age is greater than 18 and score is greater than 60
     Print "Passed".
 
-If Score is equal to 85:
+If score is equal to 85
     Print "Score is exactly 85".
 
 # --- 3. Loops ---
 Print "Counting 1 to 5:".
-For Every Number from 1 to 5:
+For Every Number from 1 to 5
     Print _index.
 
-Counter is 1.
-While Counter is less than 3:
-    Print "While: ${Counter}".
-    Increase Counter by 1.
+counter is 1.
+While counter is less than 3
+    Print "While: ${counter}".
+    Increase counter by 1.
 
 # --- 4. Lists (Map, Filter, Sum) ---
-A List Nums exists.
-Nums contains 10, 20, 30, 40, and 50.
+A List nums exists.
+nums contains 10, 20, 30, 40, and 50.
 
-To Double a Number:
+To Double a Number
     Result is the Number times 2.
 
-Doubled is Nums transformed-by Double.
-Print "Doubled: " followed by Doubled.
+doubled is nums transformed-by Double.
+Print "Doubled: " followed by doubled.
 
-Big is Nums filtered-by _ > 25.
-Print "Big (>25): " followed by Big.
+big is nums filtered-by _ > 25.
+Print "Big (>25): " followed by big.
 
-SumResult is the sum of Nums.
-Print "Sum: " followed by SumResult.
+sum-result is the sum of nums.
+Print "Sum: " followed by sum-result.
 
 # --- 5. Strings ---
-Shout is (Uppercase "hello").
-Print "Uppercase: " followed by Shout.
+shout is (Uppercase "hello").
+Print "Uppercase: " followed by shout.
 
-Quiet is (Lowercase "HELLO").
-Print "Lowercase: " followed by Quiet.
+quiet is (Lowercase "HELLO").
+Print "Lowercase: " followed by quiet.
 
-Fixed is (replace "a-b-c" "-" "/").
-Print "Replaced: " followed by Fixed.
+fixed is (Replace "a-b-c" "-" "/").
+Print "Replaced: " followed by fixed.
 
 # --- 6. File I/O ---
 Write "hello tutorial" to the file "test_tutorial.txt".
-A Text Content exists.
-Read the file "test_tutorial.txt" into Content.
-Print "File content: " followed by Content.
+A Text content exists.
+Read the file "test_tutorial.txt" into content.
+Print "File content: " followed by content.
 Delete the file "test_tutorial.txt".
 
 # --- 7. Shell commands ---
-A Text Listing exists.
-Listing is `echo shell-works`.
-Print "Shell: " followed by Listing.
+A Text listing exists.
+listing is `echo shell-works`.
+Print "Shell: " followed by listing.
 
 # --- 8. Env vars ---
-A Text Home exists.
-Home is the environment variable "USERPROFILE".
+A Text home exists.
+home is the environment variable "USERPROFILE".
 Print "Home exists: " followed by "yes".
 
 # --- 9. Try/Catch ---
-Try:
+Try
     Execute the shell command `nonexistent-command-xyz`.
-Catch the error into Err:
+Catch the error into err
     Print "Caught error successfully".
 
 Print "All sections passed!".

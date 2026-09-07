@@ -8,7 +8,7 @@
   },
   "type": "module",
   "scripts": {
-    "start": "node src/index.js --help",
+    "start": "node src/index.js",
     "run": "node src/index.js --run",
     "build": "bun build --compile src/index.js --outfile dist/prose.exe",
     "test": "node --test test/test_*.js"

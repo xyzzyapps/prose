@@ -5,8 +5,8 @@
 A programming language that reads like English. Statements are sentences. Blocks are indented. Files end in `.prose`.
 
 ```
-Name is "Alice".
-Print "Hello, ${Name}".
+name is "Alice".
+Print "Hello, ${name}".
 ```
 
 ## Install and run
@@ -16,7 +16,7 @@ npm install
 node src/index.js examples/hello.prose
 ```
 
-With [Bun](https://bun.sh):
+With [Bun](https://bun.sh)
 
 ```bash
 npm run build
@@ -24,11 +24,12 @@ npm run build
 ```
 
 ```
+prose                     Interactive REPL
 prose <file.prose>        Run a file
 prose --help
 ```
 
-The interactive shell is currently disabled (multiline input is buggy). Run a `.prose` file instead.
+The REPL runs one statement per line. Periods are optional. Same-line blocks work: `If x > 5 Print "yes" Otherwise Print "no"`.
 
 ## Two kinds of quotes
 
@@ -44,26 +45,26 @@ Keywords and verb names start with a capital: `Print`, `If`, `To Greet`, `(Upper
 ```
 Print "Hello".
 `echo hello`.
-Listing is `dir`.
+listing is `dir`.
 ```
 
 ## A first program
 
 ```
-Name is "Ada".
-Age is 36.
-Print "${Name} is ${Age}".
+name is "Ada".
+age is 36.
+Print "${name} is ${age}".
 
-If Age is greater than 18:
+If age is greater than 18
     Print "Adult".
-Otherwise:
+Otherwise
     Print "Minor".
 
-To Greet a Person:
+To Greet a Person
     Print "Hello, " + the Person.
 
-A Person named Ada exists.
-Greet Ada.
+A Person named ada exists.
+Greet ada.
 ```
 
 Save as `hello.prose` and run `node src/index.js hello.prose`.

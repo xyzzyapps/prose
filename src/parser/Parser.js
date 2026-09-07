@@ -7,7 +7,7 @@
  * indentation-sensitive blocks via consumeBlock().
  */
 
-import { TokenType, ARTICLES } from '../lexer/Token.js';
+import { TokenType, ARTICLES, isSmallVariableName, smallVariableHint } from '../lexer/Token.js';
 import {
   Program,
   VariableDeclaration, Assignment, PrintStmt,
@@ -56,6 +56,16 @@ function isTypeName(name) {
   return name.length >= 2 && name[0] === name[0].toUpperCase() && name[0] !== name[0].toLowerCase();
 }
 const ANAPHOR_WORDS = new Set(['it', 'there', 'here', 'those', 'others', '_']);
+
+/** Capitalized words that open a statement, so a header can omit `:`. */
+const BODY_STARTERS = new Set([
+  'print', 'if', 'otherwise', 'otherwise-if', 'while',
+  'for', 'for-every', 'to', 'result', 'set', 'increase', 'lower', 'decrease',
+  'label', 'jump', 'try', 'catch', 'keep', 'call', 'using', 'include',
+  'whenever', 'after', 'every', 'read', 'write', 'delete', 'make', 'change',
+  'copy', 'rename', 'touch', 'append', 'run', 'execute', 'break', 'continue',
+  'find', 'find-every', 'inside', 'with', 'end',
+]);
 
 const PHRASE_STOP = new Set([
   'is', 'to', 'by', 'of', 'then', 'where', 'and', 'or', 'followed', 'plus', 'minus',
@@ -127,6 +137,22 @@ export class Parser {
   }
 
   /**
+   * Variables must start with a lowercase letter (`score`, `myScore`, `my-score`).
+   * Multi-word alias phrases (`Current Client`) are not variable identifiers.
+   * Throws a committed SyntaxError so statement-pattern backtracking does not swallow it.
+   */
+  _assertVarName(name, tok) {
+    if (!name || name.includes(' ')) return;
+    if (isSmallVariableName(name)) return;
+    const err = new SyntaxError(
+      `Variable names start with a lowercase letter (use "${smallVariableHint(name)}")`,
+      tok.line, tok.column
+    );
+    err.committed = true;
+    throw err;
+  }
+
+  /**
    * Statement/clause keyword: must start with a capital and match `canonical`
    * case-insensitively (`Print`, not `print`).
    */
@@ -146,13 +172,20 @@ export class Parser {
     }
   }
 
+  _isBodyStarter() {
+    if (!this._check(TokenType.WORD)) return false;
+    if (!this._isCapitalized(this._current().value)) return false;
+    return BODY_STARTERS.has(this._current().value.toLowerCase());
+  }
+
   _atStmtEnd() {
     const t = this._current().type;
     return t === TokenType.PERIOD || t === TokenType.NEWLINE || t === TokenType.DEDENT ||
-           t === TokenType.EOF || t === TokenType.RPAREN || t === TokenType.COLON;
+           t === TokenType.EOF || t === TokenType.RPAREN ||
+           this._isBodyStarter();
   }
 
-  /** Sentence terminator: period, or end of line / block (markdown lists). */
+  /** Sentence terminator: period, end of line / block, or the next statement. */
   _expectEnd() {
     if (this._check(TokenType.PERIOD)) {
       this._advance();
@@ -171,13 +204,6 @@ export class Parser {
       for (const s of stmt.statements) this._flattenStmt(s, out);
     } else if (stmt) {
       out.push(stmt);
-    }
-  }
-
-  /** Skip until we hit a specific token type */
-  _skipPast(type) {
-    while (this.pos < this.tokens.length && this._current().type !== type) {
-      this._advance();
     }
   }
 
@@ -209,8 +235,14 @@ export class Parser {
       } catch (e) {
         if (e instanceof SyntaxError && this.recover) {
           logger.warn(`Parse error: ${e.message} — attempting recovery`);
-          this._skipPast(TokenType.PERIOD);
-          if (this._check(TokenType.PERIOD)) this._advance();
+          while (this.pos < this.tokens.length &&
+                 !this._check(TokenType.PERIOD) &&
+                 !this._check(TokenType.NEWLINE) &&
+                 !this._check(TokenType.DEDENT) &&
+                 !this._check(TokenType.EOF)) {
+            this._advance();
+          }
+          if (this._check(TokenType.PERIOD) || this._check(TokenType.NEWLINE)) this._advance();
         } else {
           throw e;
         }
@@ -257,7 +289,7 @@ export class Parser {
       () => this._parseShellStmt(),      // Execute the shell command "..."
       () => this._parsePipeShell(),      // Run "..." and pipe to "..."
       () => this._parseExecute(),
-      () => this._parseReadFile(),       // Read the file "..." into X.
+      () => this._parseReadFile(),       // Read the file "..." into x.
       () => this._parseWriteFile(),      // Write ... to the file "...".
       () => this._parseInclude(),        // Include "file.prose".
       () => this._parseDeleteFile(),      // Delete the file "path".
@@ -287,6 +319,7 @@ export class Parser {
           return stmt;
         }
       } catch (e) {
+        if (e instanceof SyntaxError && e.committed) throw e;
         // This pattern didn't match, try next
         continue;
       }
@@ -301,27 +334,32 @@ export class Parser {
   }
 
   /**
-   * Consume a block of indented statements.
-   * Expects: COLON NEWLINE INDENT statements... DEDENT
+   * Consume a block: indented statements, or one statement on the same line.
+   * `If x > 5 Print "yes"` and the indented form are both valid. No colon.
    * @returns {Stmt[]}
    */
   consumeBlock() {
-    const colonTok = this._expect(TokenType.COLON);
-    // Allow optional newline before the INDENT
-    const savedPos = this.pos;
-    // Actually, after COLON, we either have NEWLINE INDENT or blank lines then INDENT
-    // Skip any intervening NEWLINEs
+    const startTok = this._current();
     while (this._check(TokenType.NEWLINE)) {
       this._advance();
     }
 
     if (!this._check(TokenType.INDENT)) {
-      // Single-line block: parse a single statement on the same line after colon
-      // (Some constructs might allow this, but for now require indented block)
-      throw new SyntaxError(
-        'Expected indented block after colon',
-        colonTok.line, colonTok.column
-      );
+      if (this._atStmtEnd() && !this._isBodyStarter()) {
+        const err = new SyntaxError(
+          'Expected a statement in the block',
+          startTok.line, startTok.column
+        );
+        err.committed = true;
+        throw err;
+      }
+      try {
+        const stmt = this.parseStatement();
+        return stmt ? [stmt] : [];
+      } catch (e) {
+        if (e instanceof SyntaxError) e.committed = true;
+        throw e;
+      }
     }
 
     this._advance(); // consume INDENT
@@ -396,9 +434,8 @@ export class Parser {
     if (!this._check(TokenType.NUMBER)) return null;
     const numTok = this._advance();
     this._match(TokenType.PERIOD);
-    this._match(TokenType.COLON);
     while (this._check(TokenType.BULLET)) this._advance();
-    if (this._atStmtEnd() && !this._check(TokenType.COLON)) {
+    if (this._atStmtEnd() && !this._isBodyStarter()) {
       return new LabelStmt(String(numTok.value), numTok.line, numTok.column);
     }
     const inner = this.parseStatement();
@@ -635,13 +672,15 @@ export class Parser {
       throw new SyntaxError('Expected "Catch" after Try block', tryTok.line, tryTok.column);
     }
 
-    // Optional: "the error" or "the error into X"
+    // Optional: "the error" or "the error into err"
     // Don't _skipNoise here - "the" could be the next word
     let errorVar = null;
     if (this._match(TokenType.WORD, 'the')) {
       this._match(TokenType.WORD, 'error');
       if (this._match(TokenType.WORD, 'into')) {
-        errorVar = this._expect(TokenType.WORD).value;
+        const errTok = this._expect(TokenType.WORD);
+        this._assertVarName(errTok.value, errTok);
+        errorVar = errTok.value;
       }
     }
 
@@ -666,6 +705,7 @@ export class Parser {
     this._expect(TokenType.WORD, 'into');
 
     const varTok = this._expect(TokenType.WORD);
+    this._assertVarName(varTok.value, varTok);
     this._expectEnd();
 
     return new ReadFileStmt(pathExpr, varTok.value, readTok.line, readTok.column);
@@ -701,11 +741,12 @@ export class Parser {
     this._match(TokenType.WORD, 'text');
     this._match(TokenType.WORD, 'inside');
     const varTok = this._expect(TokenType.WORD);
+    this._assertVarName(varTok.value, varTok);
     this._expectEnd();
     return new ExecuteStmt(varTok.value, varTok.line, varTok.column);
   }
 
-  /** `A Type named VarName exists.` or `A Text named X exists as follows until TERM: ... TERM` */
+  /** `A Type named varName exists.` or `A Text named x exists as follows until TERM: ... TERM` */
   _parseVariableDecl() {
     // Match "A" or "An" directly before skipping noise (it's structural here)
     const articleTok = this._matchKw('A') || this._matchKw('An');
@@ -718,13 +759,14 @@ export class Parser {
 
     // Consume the type word
     this._advance();
-    // "named" is optional. Do not skipNoise here — a variable may be named A.
+    // "named" is optional. Do not skipNoise here — a variable may be named `a`.
     this._match(TokenType.WORD, 'named');
     if (!this._check(TokenType.WORD)) return null;
     const nameTok = this._advance();
     if (!this._match(TokenType.WORD, 'exists')) {
       return null;
     }
+    this._assertVarName(nameTok.value, nameTok);
 
     // Check for heredoc initializer
     if (this._check(TokenType.HEREDOC)) {
@@ -754,6 +796,11 @@ export class Parser {
 
     this._skipNoise();
     if (this._check(TokenType.HEREDOC)) {
+      if (dest.entity) {
+        if (!dest.usedThe) this._assertVarName(dest.entity, firstTok);
+      } else {
+        this._assertVarName(dest.target, firstTok);
+      }
       const value = this.parseExpression();
       this._expectEnd();
       return new Assignment(
@@ -762,6 +809,12 @@ export class Parser {
       );
     }
     if (!this._match(TokenType.WORD, 'is') && !this._match(TokenType.OPERATOR, '=')) return null;
+
+    if (dest.entity) {
+      if (!dest.usedThe) this._assertVarName(dest.entity, firstTok);
+    } else {
+      this._assertVarName(dest.target, firstTok);
+    }
 
     this._skipNoise();
     const value = this.parseExpression();
@@ -774,7 +827,7 @@ export class Parser {
   }
 
   /**
-   * Parse `the Current Client's balance` or `X` or `Alice's age`.
+   * Parse `the Current Client's balance` or `x` or `alice's age`.
    * Leaves the stream at `is` / `to` / `by` on success.
    */
   _parseAssignTarget() {
@@ -788,8 +841,11 @@ export class Parser {
       if (p.type === TokenType.OPERATOR && p.value === '=') return true;
       return false;
     };
-    if (this._check(TokenType.WORD, 'the') && !peekIsBinder()) this._advance();
-    else if (this._check(TokenType.WORD, 'a') && !peekIsBinder()) this._advance();
+    let usedThe = false;
+    if (this._check(TokenType.WORD, 'the') && !peekIsBinder()) {
+      this._advance();
+      usedThe = true;
+    } else if (this._check(TokenType.WORD, 'a') && !peekIsBinder()) this._advance();
     else if (this._check(TokenType.WORD, 'an') && !peekIsBinder()) this._advance();
 
     while (this._check(TokenType.WORD)) {
@@ -799,7 +855,7 @@ export class Parser {
       if (this._check(TokenType.POSSESSIVE)) {
         this._advance();
         const prop = this._expect(TokenType.WORD).value;
-        return { entity: words.join(' '), target: prop, indexExpr: null };
+        return { entity: words.join(' '), target: prop, indexExpr: null, usedThe };
       }
     }
 
@@ -807,12 +863,12 @@ export class Parser {
       this._advance();
       const idx = this.parseExpression();
       this._expect(TokenType.RBRACKET);
-      return { entity: null, target: words[0], indexExpr: idx };
+      return { entity: null, target: words[0], indexExpr: idx, usedThe: false };
     }
     if (words.length === 1 && this._check(TokenType.WORD, 'at')) {
       this._advance();
       const idx = this._parseUnary();
-      return { entity: null, target: words[0], indexExpr: idx };
+      return { entity: null, target: words[0], indexExpr: idx, usedThe: false };
     }
 
     if (words.length >= 1 &&
@@ -820,7 +876,7 @@ export class Parser {
          (this._check(TokenType.WORD) &&
           ['is', 'to', 'by'].includes(this._current().value.toLowerCase())) ||
          this._check(TokenType.OPERATOR, '='))) {
-      return { entity: null, target: words.join(' '), indexExpr: null };
+      return { entity: null, target: words.join(' '), indexExpr: null, usedThe: false };
     }
 
     this.pos = saved;
@@ -860,7 +916,7 @@ export class Parser {
     const ifTok = this._matchKw('If');
     if (!ifTok) return null;
 
-    // Don't _skipNoise here - the condition may start with a variable named "A"
+    // Don't _skipNoise here - the condition may start with a variable named "a"
     const condition = this.parseExpression();
     const thenBlock = this.consumeBlock();
 
@@ -927,6 +983,8 @@ export class Parser {
     this._skipNoise();
     this._expect(TokenType.WORD, 'in');
     const collTok = this._expect(TokenType.WORD);
+    this._assertVarName(varTok.value, varTok);
+    this._assertVarName(collTok.value, collTok);
     const body = this.consumeBlock();
 
     return new ForEveryStmt(
@@ -981,9 +1039,9 @@ export class Parser {
     const slots = [];
     while (this.pos < this.tokens.length &&
            this._current().type === TokenType.WORD) {
+      if (this._isBodyStarter()) break;
       let role = null;
       const w = this._current().value.toLowerCase();
-      if (w === 'to' && this._peek(1)?.type === TokenType.COLON) break;
       if (ROLE_FILLERS.has(w) && w !== 'and') {
         role = this._advance().value;
         this._match(TokenType.WORD, 'a');
@@ -993,7 +1051,7 @@ export class Parser {
         const typeTok = this._advance();
         if (!isTypeName(typeTok.value)) {
           throw new SyntaxError(
-            `"${typeTok.value}" is not a type. Teach verbs with types: To Greet a Person:`,
+            `"${typeTok.value}" is not a type. Teach verbs with types: To Greet a Person`,
             typeTok.line, typeTok.column
           );
         }
@@ -1007,7 +1065,7 @@ export class Parser {
       const typeTok = this._advance();
       if (!isTypeName(typeTok.value)) {
         throw new SyntaxError(
-          `"${typeTok.value}" is not a type. Use To Greet a Person: and refer to the Person in the body.`,
+          `"${typeTok.value}" is not a type. Use To Greet a Person and refer to the Person in the body.`,
           typeTok.line, typeTok.column
         );
       }
@@ -1050,7 +1108,7 @@ export class Parser {
 
     this._advance(); // consume verb name
 
-    // Read arguments (everything up to PERIOD, COLON, NEWLINE, or RPAREN)
+    // Read arguments (everything up to PERIOD, NEWLINE, or RPAREN)
     const args = [];
     while (this.pos < this.tokens.length &&
            !this._atStmtEnd() &&
@@ -1097,6 +1155,7 @@ export class Parser {
     if (!this._matchKw('Inside')) return null;
 
     const dictTok = this._expect(TokenType.WORD);
+    this._assertVarName(dictTok.value, dictTok);
     this._match(TokenType.COMMA); // optional comma
 
     // key can be TEXT or expression
@@ -1135,6 +1194,7 @@ export class Parser {
     }
 
     this._advance(); // consume list name
+    this._assertVarName(listTok.value, listTok);
     this._skipNoise();
     this._expect(TokenType.WORD, 'contains');
 
@@ -1172,6 +1232,7 @@ export class Parser {
     this._skipNoise();
     this._expect(TokenType.WORD, 'in');
     const collTok = this._expect(TokenType.WORD);
+    this._assertVarName(collTok.value, collTok);
     this._skipNoise();
 
     let propName;
@@ -1205,6 +1266,7 @@ export class Parser {
     if (!wheneverTok) return null;
 
     const entityTok = this._expect(TokenType.WORD);
+    this._assertVarName(entityTok.value, entityTok);
     let propertyName = null;
 
     if (this._check(TokenType.POSSESSIVE)) {
@@ -1363,6 +1425,11 @@ export class Parser {
 
     const dest = this._parseAssignTarget();
     if (!dest) return null;
+    if (dest.entity) {
+      if (!dest.usedThe) this._assertVarName(dest.entity, opTok);
+    } else {
+      this._assertVarName(dest.target, opTok);
+    }
     const entity = dest.entity;
     const target = dest.target;
 
@@ -1803,6 +1870,7 @@ export class Parser {
         this._expect(TokenType.WORD, 'inside');
 
         const dictTok = this._expect(TokenType.WORD);
+        this._assertVarName(dictTok.value, dictTok);
         return new DictionaryAccessExpr(
           dictTok.value, key,
           tok.line, tok.column
@@ -2030,6 +2098,7 @@ export class Parser {
           this._advance();
         }
         const propTok = this._expect(TokenType.WORD);
+        this._assertVarName(wordTok.value, wordTok);
         return new PropertyAccessExpr(
           wordTok.value, propTok.value,
           wordTok.line, wordTok.column
@@ -2043,6 +2112,7 @@ export class Parser {
         return new OfPropertyExpr(wordTok.value, obj, wordTok.line, wordTok.column);
       }
 
+      this._assertVarName(wordTok.value, wordTok);
       return new VariableExpr(wordTok.value, wordTok.line, wordTok.column);
     }
 

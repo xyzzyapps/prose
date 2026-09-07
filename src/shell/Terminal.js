@@ -32,7 +32,7 @@ export function showBanner() {
   const subtitle = gradient(['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff8b94']);
 
   const box = boxen(
-    `${title}\n${chalk.dim('Prose  v2.0')}\n${subtitle('Code that reads like English.')}\n\n${chalk.dim('• Type Prose statements directly')}\n${chalk.dim('• .help for commands  •  .exit to quit')}\n${chalk.dim('• Ctrl+C to cancel  •  Lines ending with : enter multi-line mode')}`,
+    `${title}\n${chalk.dim('Prose  v2.0')}\n${subtitle('Code that reads like English.')}\n\n${chalk.dim('• Type Prose statements directly  •  one line at a time')}\n${chalk.dim('• .help for commands  •  .exit to quit')}`,
     {
       padding: { top: 0, bottom: 1, left: 3, right: 3 },
       margin: { top: 1, bottom: 1 },
@@ -56,11 +56,6 @@ export function makePrompt() {
   const dirName = path.basename(displayPath) || displayPath;
 
   return `${chalk.hex('#6c5ce7').bold('prose')} ${chalk.dim(displayPath)} ${chalk.hex('#a29bfe')('›')} `;
-}
-
-export function makeContPrompt(_indent = 0) {
-  // Plain ASCII: ANSI + leading spaces desync the cursor on Windows readline.
-  return '... ';
 }
 
 // ---------------------------------------------------------------------------
@@ -146,15 +141,14 @@ const PROSE_KEYWORDS = [
 ];
 
 /**
- * Tab completion. Empty / whitespace-only lines get 4 more spaces (indent).
- * Leading indent is kept on keyword hits so continuation lines stay indented.
+ * Tab completion for dot-commands and Prose keywords.
  */
 export function completer(line) {
   const leadWs = (line.match(/^[ \t]*/) || [''])[0];
   const trimmed = line.slice(leadWs.length);
 
   if (!trimmed) {
-    return [[leadWs + '    '], line];
+    return [[], line];
   }
 
   const hits = [];
@@ -175,26 +169,6 @@ export function completer(line) {
   }
 
   return [hits.length ? hits : [], line];
-}
-
-/** Lines that stay at the current outer indent in a REPL block. */
-const REPL_DEDENT_HEADS = /^(Otherwise|Catch)\b/;
-
-/**
- * Indent a continuation line for an indented Prose block.
- * @returns {{ text: string, indent: number, endBlock: boolean }}
- */
-export function applyReplContinuation(line, blockIndent) {
-  const trimmed = line.trim();
-  if (trimmed === '') {
-    return { text: line, indent: 0, endBlock: true };
-  }
-  const indent = line.length - line.trimStart().length;
-  if (indent === 0 && !REPL_DEDENT_HEADS.test(trimmed)) {
-    const pad = blockIndent > 0 ? blockIndent : 4;
-    return { text: ' '.repeat(pad) + trimmed, indent: pad, endBlock: false };
-  }
-  return { text: line, indent, endBlock: false };
 }
 
 // ---------------------------------------------------------------------------

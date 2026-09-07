@@ -11,7 +11,6 @@ export const TokenType = {
 
   // Punctuation
   PERIOD: 'PERIOD',       // .
-  COLON: 'COLON',         // :
   COMMA: 'COMMA',         // ,
   LPAREN: 'LPAREN',       // (
   RPAREN: 'RPAREN',       // )
@@ -42,6 +41,24 @@ export const TokenType = {
  * may skip them during pattern matching.
  */
 export const ARTICLES = new Set(['a', 'an', 'the']);
+
+/**
+ * True if `name` may be used as a variable identifier.
+ * Must start with a lowercase letter (camelCase, snake_case, kebab-case)
+ * or `_` (`_index`, `_`). Multi-word alias phrases are not checked here.
+ */
+export function isSmallVariableName(name) {
+  if (!name) return false;
+  const c = name[0];
+  if (c === '_') return true;
+  return c === c.toLowerCase() && c !== c.toUpperCase();
+}
+
+/** Suggest the small-case form of a capitalized variable (`Age` → `age`). */
+export function smallVariableHint(name) {
+  if (!name) return name;
+  return name[0].toLowerCase() + name.slice(1);
+}
 
 export class Token {
   /**

@@ -1,7 +1,7 @@
 # Minimal test for DSL + Shell
 
-To TestVerb a Text:
-    Print "Verb called with: " followed by the Text.
+To TestVerb a Text
+    Print "Verb called with: " followed by "${text}".
 
 Using TestVerb parse {
     hello world
@@ -10,7 +10,7 @@ Using TestVerb parse {
 
 Execute the shell command `echo SH_TEST`.
 
-A Text named X exists.
-X is `echo captured`.
+A Text named x exists.
+x is `echo captured`.
 
-Print "X = " followed by X.
+Print "X = " followed by x.

@@ -1,52 +1,52 @@
 # Simplified Prose Demo - New Features
 
 # --- Implicit variable declaration ---
-# No need for "A Number named X exists." - just assign!
-X is 42.
-Print "X = ${X}".
+# No need for "A Number named x exists." - just assign!
+x is 42.
+Print "X = ${x}".
 
-Name is "Prose".
-Print "Hello, ${Name}!".
+name is "Prose".
+Print "Hello, ${name}!".
 
 # --- Map: transform every item ---
-To Double a Number:
+To Double a Number
     Result is the Number times 2.
 
-A List named Numbers exists.
-Numbers contains 1, 2, 3, 4, and 5.
+A List named numbers exists.
+numbers contains 1, 2, 3, 4, and 5.
 
-A List named Doubled exists.
-Doubled is Numbers transformed-by Double.
-Print "Doubled: " followed by Doubled.
+A List named doubled exists.
+doubled is numbers transformed-by Double.
+Print "Doubled: " followed by doubled.
 
 # --- Filter: keep items where condition ---
-A List named Big exists.
-Big is Numbers filtered-by _ > 2.
-Print "Big: " followed by Big.
+A List named big exists.
+big is numbers filtered-by _ > 2.
+Print "Big: " followed by big.
 
 # --- Sum ---
-A Number named Total exists.
-Total is the sum of Numbers.
-Print "Sum: " followed by Total.
+A Number named total exists.
+total is the sum of numbers.
+Print "Sum: " followed by total.
 
 # --- Whenever on plain variable ---
-Whenever X changes:
-    Print "X changed to ${X}!".
+Whenever x changes
+    Print "X changed to ${x}!".
 
-X is 100.
+x is 100.
 
 # --- File ops ---
 Write "test data" to the file "test_simplify.txt".
 Print "File written".
 
-A Text named ReadBack exists.
-Read the file "test_simplify.txt" into ReadBack.
-Print "Read: " followed by ReadBack.
+A Text named read-back exists.
+Read the file "test_simplify.txt" into read-back.
+Print "Read: " followed by read-back.
 
 Delete the file "test_simplify.txt".
 Print "File deleted".
 
 # --- List directory ---
-A List named DirFiles exists.
-DirFiles is the list of files in ".".
-Print "Files in current dir: " followed by DirFiles.
+A List named dir-files exists.
+dir-files is the list of files in ".".
+Print "Files in current dir: " followed by dir-files.

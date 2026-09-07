@@ -80,12 +80,12 @@ describe('1. Values', () => {
 
 describe('2. Lexer', () => {
   it('tokenizes a declaration', () => {
-    const tokens = new Lexer('A Number named X exists.', '<test>').tokenize();
+    const tokens = new Lexer('A Number named x exists.', '<test>').tokenize();
     assert.ok(tokens.length > 5);
   });
 
   it('emits INDENT and DEDENT', () => {
-    const types = new Lexer('If x:\n    Print "y".\n', '<test>').tokenize().map(t => t.type);
+    const types = new Lexer('If x\n    Print "y".\n', '<test>').tokenize().map(t => t.type);
     assert.ok(types.includes('INDENT'));
     assert.ok(types.includes('DEDENT'));
   });
@@ -97,8 +97,8 @@ describe('2. Lexer', () => {
 
 describe('3. Names, assignment, print', () => {
   it('declares and assigns a Number', () => {
-    const { interpreter } = runCode('A Number named X exists.\nX is 42.\n');
-    const val = interpreter.env.lookup('X');
+    const { interpreter } = runCode('A Number named x exists.\nx is 42.\n');
+    const val = interpreter.env.lookup('x');
     assert.ok(val instanceof NumberValue);
     assert.equal(val.value, 42);
   });
@@ -108,8 +108,8 @@ describe('3. Names, assignment, print', () => {
   });
 
   it('Increase mutates a Number', () => {
-    const { interpreter } = runCode('A Number named X exists.\nX is 10.\nIncrease X by 5.\n');
-    assert.equal(interpreter.env.lookup('X').value, 15);
+    const { interpreter } = runCode('A Number named x exists.\nx is 10.\nIncrease x by 5.\n');
+    assert.equal(interpreter.env.lookup('x').value, 15);
   });
 });
 
@@ -119,7 +119,7 @@ describe('3. Names, assignment, print', () => {
 
 describe('4. Numbers and operators', () => {
   it('> in If', () => {
-    assert.equal(runCode('X is 10.\nIf X > 5:\n    Print "yes".\n').output, 'yes');
+    assert.equal(runCode('x is 10.\nIf x > 5\n    Print "yes".\n').output, 'yes');
   });
 
   it('+ adds numbers', () => {
@@ -159,7 +159,7 @@ describe('5. Strings, quotes, heredoc, concat', () => {
 describe('6. Lists and dictionaries', () => {
   it('Join Sort First', () => {
     assert.equal(
-      runCode('A List named L exists.\nL contains "b", "a", and "c".\nPrint (Join (Sort L) ",").\nPrint (First L).\n').output,
+      runCode('A List named xs exists.\nxs contains "b", "a", and "c".\nPrint (Join (Sort xs) ",").\nPrint (First xs).\n').output,
       'a,b,c\nb'
     );
   });
@@ -167,7 +167,7 @@ describe('6. Lists and dictionaries', () => {
   it('transformed-by with a kebab list name', () => {
     assert.equal(
       runCode(
-        'To Double a Number:\n    Result is the Number * 2.\nA List named my-scores exists.\nmy-scores contains 1, 2, and 3.\nout is my-scores transformed-by Double.\nPrint out.\n'
+        'To Double a Number\n    Result is the Number * 2.\nA List named my-scores exists.\nmy-scores contains 1, 2, and 3.\nout is my-scores transformed-by Double.\nPrint out.\n'
       ).output,
       '[2, 4, 6]'
     );
@@ -175,14 +175,14 @@ describe('6. Lists and dictionaries', () => {
 
   it('Inside maps to / the value for', () => {
     assert.equal(
-      runCode('A Dictionary named D exists.\nInside D, "key" maps to "value".\nPrint the value for "key" inside D.\n').output,
+      runCode('A Dictionary named d exists.\nInside d, "key" maps to "value".\nPrint the value for "key" inside d.\n').output,
       'value'
     );
   });
 
   it('Haskey and Dictsize', () => {
     assert.equal(
-      runCode('A Dictionary named D exists.\nInside D, "k" maps to "v".\nPrint (Haskey D "k").\nPrint (Dictsize D).\n').output,
+      runCode('A Dictionary named d exists.\nInside d, "k" maps to "v".\nPrint (Haskey d "k").\nPrint (Dictsize d).\n').output,
       '1\n1'
     );
   });
@@ -195,21 +195,50 @@ describe('6. Lists and dictionaries', () => {
 describe('7. Control flow', () => {
   it('If / Otherwise', () => {
     assert.equal(
-      runCode('A Number named X exists.\nX is 10.\nIf X is greater than 5:\n    Print "yes".\nOtherwise:\n    Print "no".\n').output,
+      runCode('A Number named x exists.\nx is 10.\nIf x is greater than 5\n    Print "yes".\nOtherwise\n    Print "no".\n').output,
       'yes'
     );
   });
 
   it('While', () => {
     assert.equal(
-      runCode('A Number named C exists.\nC is 0.\nWhile C is less than 3:\n    Print C.\n    Increase C by 1.\n').output,
+      runCode('A Number named c exists.\nc is 0.\nWhile c is less than 3\n    Print c.\n    Increase c by 1.\n').output,
       '0\n1\n2'
     );
   });
 
   it('Break in While', () => {
     assert.equal(
-      runCode('n is 0.\nWhile True:\n    Increase n by 1.\n    If n == 2:\n        Break.\nPrint n.\n').output,
+      runCode('n is 0.\nWhile True\n    Increase n by 1.\n    If n == 2\n        Break.\nPrint n.\n').output,
+      '2'
+    );
+  });
+
+  it('If / Otherwise on one line', () => {
+    assert.equal(
+      runCode('x is 10.\nIf x > 5 Print "yes" Otherwise Print "no".\n').output,
+      'yes'
+    );
+    assert.equal(
+      runCode('x is 1.\nIf x > 5 Print "yes" Otherwise Print "no".\n').output,
+      'no'
+    );
+  });
+
+  it('While on one line', () => {
+    assert.equal(
+      runCode('n is 0.\nWhile n < 3 Increase n by 1.\nPrint n.\n').output,
+      '3'
+    );
+  });
+
+  it('If / While without a colon, indented', () => {
+    assert.equal(
+      runCode('x is 10.\nIf x > 5\n    Print "yes"\n').output,
+      'yes'
+    );
+    assert.equal(
+      runCode('n is 0.\nWhile n < 2\n    Increase n by 1\nPrint n\n').output,
       '2'
     );
   });
@@ -217,7 +246,7 @@ describe('7. Control flow', () => {
   it('numbered list is a goto label', () => {
     assert.equal(
       runCode(
-        'A Number named C exists.\nC is 0.\n1. Increase C by 1.\nIf C is less than 2:\n    Jump to the label 1.\nPrint C.\n'
+        'A Number named c exists.\nc is 0.\n1. Increase c by 1.\nIf c is less than 2\n    Jump to the label 1.\nPrint c.\n'
       ).output,
       '2'
     );
@@ -230,13 +259,24 @@ describe('7. Control flow', () => {
 
 describe('8. Verbs', () => {
   it('To SayHello with no arguments', () => {
-    assert.equal(runCode('To SayHello:\n    Print "Hello".\nSayHello.\n').output, 'Hello');
+    assert.equal(runCode('To SayHello\n    Print "Hello".\nSayHello.\n').output, 'Hello');
+  });
+
+  it('To and For-Every on one line', () => {
+    assert.equal(
+      runCode('To Double a Number Result is the Number * 2.\nPrint (Double 21).\n').output,
+      '42'
+    );
+    assert.equal(
+      runCode('A List named xs exists.\nxs contains 1, and 2.\nFor-Every n in xs Print n.\n').output,
+      '1\n2'
+    );
   });
 
   it('To Settle a Client uses the Client', () => {
     assert.equal(
       runCode(
-        'Set u1 to Dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balanceDue is 10.\nCall u1 the Current Client.\nTo Settle a Client:\n    Set the Client\'s balanceDue to 0.\n    Print "Settled " followed by the Client\'s name.\nSettle the Current Client.\nPrint balanceDue of u1.\n'
+        'Set u1 to Dictionary of type is "User" and status is "Active" and role is "Admin" and name is "Alice" and balanceDue is 10.\nCall u1 the Current Client.\nTo Settle a Client\n    Set the Client\'s balanceDue to 0.\n    Print "Settled " followed by the Client\'s name.\nSettle the Current Client.\nPrint balanceDue of u1.\n'
       ).output,
       'Settled Alice\n0'
     );
@@ -249,15 +289,15 @@ describe('8. Verbs', () => {
 
 describe('9. Fields and entities', () => {
   it("possessive field Ada's age", () => {
-    const { interpreter } = runCode('A User named Alice exists.\nAlice\'s age is 25.\n');
-    const alice = interpreter.env.lookup('Alice');
+    const { interpreter } = runCode('A User named alice exists.\nalice\'s age is 25.\n');
+    const alice = interpreter.env.lookup('alice');
     assert.ok(alice instanceof EntityValue);
     assert.equal(alice.get('age').value, 25);
   });
 
   it('dot field Ada.age', () => {
     assert.equal(
-      runCode('A User named Ada exists.\nAda\'s age is 36.\nPrint Ada.age.\n').output,
+      runCode('A User named ada exists.\nada\'s age is 36.\nPrint ada.age.\n').output,
       '36'
     );
   });
@@ -278,13 +318,13 @@ describe('9. Fields and entities', () => {
 
 describe('10. Anaphora', () => {
   it('it and the number', () => {
-    assert.equal(runCode('X is 42\nPrint it\nPrint the number\n').output, '42\n42');
+    assert.equal(runCode('x is 42\nPrint it\nPrint the number\n').output, '42\n42');
   });
 
   it('Keep those and others', () => {
     assert.equal(
       runCode(
-        'A List named N exists.\nN contains 1, 2, and 3.\nKeep N filtered-by _ > 1.\nPrint those.\nPrint others.\n'
+        'A List named ns exists.\nns contains 1, 2, and 3.\nKeep ns filtered-by _ > 1.\nPrint those.\nPrint others.\n'
       ).output,
       '[2, 3]\n[1]'
     );

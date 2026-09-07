@@ -22,18 +22,17 @@ Prose is a practical, declarative, and highly structured programming language de
 
 | Token Type | Description | Example |
 |-----------|-------------|---------|
-| `WORD` | Identifiers and keywords | `Alice`, `Print`, `exists` |
+| `WORD` | Identifiers and keywords | `alice`, `Print`, `exists` |
 | `NUMBER` | Integers and decimals | `42`, `3.14` |
 | `TEXT` | Double-quoted strings | `"Hello, World!"` |
 | `COMMAND` | Backtick-quoted OS command | `` `echo hello` `` |
 | `HEREDOC` | Multiline text blocks | (see Heredocs) |
 | `POSSESSIVE` | Possessive marker | `'s` |
 | `PERIOD` | Sentence terminator | `.` |
-| `COLON` | Block opener | `:` |
 | `COMMA` | List separator | `,` |
 | `LPAREN` / `RPAREN` | Side-note delimiters | `(` `)` |
 | `LBRACE` / `RBRACE` | Not emitted; `{...}` becomes `BRACEBLOCK` | |
-| `DOT` | Field access when `.` is immediately followed by a letter | `Ada.age` |
+| `DOT` | Field access when `.` is immediately followed by a letter | `ada.age` |
 | `BULLET` | Markdown list marker at line start | `- `, `* `, `+ ` |
 | `INDENT` / `DEDENT` | Indentation change | (virtual tokens) |
 | `NEWLINE` | End of a source line | `\n` |
@@ -44,9 +43,10 @@ Prose is a practical, declarative, and highly structured programming language de
 **Capitalization (normative):**
 
 - **Keywords that open a statement or clause** start with a capital: `Print`, `If`, `Otherwise`, `Otherwise If`, `While`, `For Every`, `To`, `Result`, `Set`, `Increase`, `Label`, `Jump`, `Try`, `Catch`, `Keep`, `Call`, `Using`, `Include`, `Whenever`, `After`, `Every`, `A` / `An` (in declarations), `Inside`, `Find`, `Read`, `Write`, and the other file verbs.
-- **Verb names** start with a capital: `To Greet a Person:`, `Greet Ada.`, `(Uppercase "hi")`.
+- **Verb names** start with a capital: `To Greet a Person`, `Greet ada.`, `(Uppercase "hi")`.
 - **Types** start with a capital: `Number`, `Person`, `Client`.
 - **Articles and prepositions** stay lowercase: `a`, `an`, `the`, `of`, `to`, `by`, `in`, `from`, `using` (as a role filler), `is`, `named`, `exists`.
+- **Variables** start with a lowercase letter: `score`, `myScore`, `my_score`, `my-score`. `Age is 30.` is a syntax error.
 
 Lookup of names and verbs is still case-insensitive internally. The source form must use the capitals above. `print "hi".` is not a Print statement.
 
@@ -54,7 +54,7 @@ Lookup of names and verbs is still case-insensitive internally. The source form 
 
 A statement ends at the first of: `PERIOD` (`.`), `NEWLINE`, `DEDENT`, `EOF`, or `RPAREN` (inside a side-note). A missing `.` at end of line is valid.
 
-A `.` immediately followed by a letter is `DOT` (field access: `Ada.age`), not a terminator. `1. Print` (digit, period, space) is a numbered list item. `3.14` is a number.
+A `.` immediately followed by a letter is `DOT` (field access: `ada.age`), not a terminator. `1. Print` (digit, period, space) is a numbered list item. `3.14` is a number.
 
 ### 2.2 Indentation
 
@@ -66,32 +66,32 @@ Lines starting with `#` are comments and ignored.
 
 ### 2.4 Articles
 
-The articles `a`, `an`, and `the` are decorative and skipped during parsing unless they carry structural meaning (e.g., `A Type named X exists.`).
+The articles `a`, `an`, and `the` are decorative and skipped during parsing unless they carry structural meaning (e.g., `A Type named x exists.`).
 
 ### 2.5 Heredocs
 
 ```
-A Text named X exists as follows until TERMINATOR:
+A Text named x exists as follows until TERMINATOR:
     content lines
 TERMINATOR
 ```
 
-The terminator is a custom word. Content is read verbatim until a line starting with the terminator is found. The header line's `exists as follows until TERM:` is consumed by the lexer, which emits `WORD("exists")` followed by a `HEREDOC` token.
+The terminator is a custom word. Content is read verbatim until a line starting with the terminator is found. The header line's `exists as follows until TERM` is consumed by the lexer, which emits `WORD("exists")` followed by a `HEREDOC` token.
 
 ### 2.6 Quotes
 
 | Form | Meaning |
 |------|---------|
-| `"text"` | **String** (Text). Escapes: `\"`, `\\`, `\n`, `\t`, `\r`. Interpolation: `"Hello, ${Name}"`. |
+| `"text"` | **String** (Text). Escapes: `\"`, `\\`, `\n`, `\t`, `\r`. Interpolation: `"Hello, ${name}"`. |
 | `` `command` `` | **Command**. Never a string. As a statement it runs; as an expression it captures stdout. |
 
 Do not put OS commands in double quotes. `"dir"` is the four-character string dir; `` `dir` `` is a shell command.
 
 ### 2.8 Identifiers
 
-Variables may be **camelCase**, **snake_case**, or **kebab-case**, and usually start with a lowercase letter: `score`, `myScore`, `my_score`, `my-score`. Types and verb names stay Capitalized.
+Variables **must** start with a lowercase letter. They may be **camelCase**, **snake_case**, or **kebab-case**: `score`, `myScore`, `my_score`, `my-score`. Types and verb names stay Capitalized. `Age is 30.` is a syntax error; write `age is 30.`
 
-Hyphens bind inside a word (`transformed-by` is one token). Put spaces around `-` when it means minus: `X - Y`.
+Hyphens bind inside a word (`transformed-by` is one token). Put spaces around `-` when it means minus: `x - y`.
 
 ### 2.9 Compound keywords (kebab-case)
 
@@ -113,15 +113,15 @@ Where English used several keywords, a single kebab-case word is preferred.
 | `For Every` | `For-Every` |
 | `Otherwise If` | `Otherwise-If` |
 | `Find every User in Staff whose role is` | `Find User in Staff with-role` |
-| `A Text named Warning exists as follows until End` | `warning <<End` |
-| `Write X to the file "f"` | `Write X to "f"` |
-| `Read the file "f" into C` | `Read "f" into C` |
+| `A Text named warning exists as follows until End` | `warning <<End` |
+| `Write X to the file "f"` | `Write x to "f"` |
+| `Read the file "f" into C` | `Read "f" into c` |
 
 `+` concatenates if either side is not a Number; otherwise it adds.
 
 There is **no operator precedence**. `2 + 3 * 4` is `((2+3)*4)`. Use parentheses: `(2 + 3) * 4`.
 
-`.` is **field access only** (`Ada.age`), never a method call. Call verbs as sentences: `Settle Ada`.
+`.` is **field access only** (`ada.age`), never a method call. Call verbs as sentences: `Settle ada`.
 
 `=` is an alias of `is` (assignment). Equality is `==` or `is equal to`.
 
@@ -133,7 +133,7 @@ Indexing: `xs at 0`, `item 0 of xs`, `xs[0]`. Filter item is `_`: `Scores filter
 
 Scientific numbers: `1.5e2`, `1e-3`.
 
-Parse errors **stop the run in files**. The REPL still skips to the next `.`.
+Parse errors **stop the run in files**. The REPL still skips to the next `.` or newline.
 
 A custom verb type (`Client`) matches an Entity whose blueprint is Client, a Dictionary whose `type` is Client, or an entity aliased so the last word is Client (`Call u1 the Current Client`).
 
@@ -143,7 +143,7 @@ Command escapes: `` \` ``, `\\`. Commands may not span lines.
 
 At the start of line content, `- `, `* `, or `+ ` is a `BULLET` and is ignored as a statement prefix.
 
-A line starting with a number then `.` or `:` is a **numbered item**. The number is registered as a goto label (`Jump to the label 1.`).
+A line starting with a number then `.` is a **numbered item**. The number is registered as a goto label (`Jump to the label 1.`).
 
 ---
 
@@ -154,8 +154,8 @@ A line starting with a number then `.` or `:` is a **numbered item**. The number
 Integer and floating-point values. Truthy if non-zero.
 
 ```
-A Number named Age exists.
-Age is 30.
+A Number named age exists.
+age is 30.
 ```
 
 ### 3.2 Text
@@ -163,18 +163,18 @@ Age is 30.
 String values. Always written in **double quotes** (`"..."`), never backticks. Escapes: `\"`, `\\`, `\n`, `\t`, `\r`. Truthy if non-empty.
 
 ```
-A Text named Name exists.
-Name is "Alice".
+A Text named name exists.
+name is "Alice".
 ```
 
 ### 3.3 Entity (Object)
 
-Instances of a blueprint (class). Created with `A [Blueprint] named [Name] exists.` Properties accessed via possessive: `Entity's property`.
+Instances of a blueprint (class). Created with `A [Blueprint] named [name] exists.` Properties accessed via possessive: `entity's property`.
 
 ```
-A User named Alice exists.
-Alice's age is 25.
-Alice's role is "Administrator".
+A User named alice exists.
+alice's age is 25.
+alice's role is "Administrator".
 ```
 
 ### 3.4 List
@@ -182,8 +182,8 @@ Alice's role is "Administrator".
 Ordered collection. Created explicitly or via `contains`.
 
 ```
-A List named Staff exists.
-Staff contains Alice, Bob, and Charlie.
+A List named staff exists.
+staff contains alice, bob, and charlie.
 ```
 
 ### 3.5 Dictionary
@@ -191,9 +191,9 @@ Staff contains Alice, Bob, and Charlie.
 Key-value map. Keys are stringified.
 
 ```
-A Dictionary named Capitals exists.
-Inside Capitals, "France" maps to "Paris".
-Print the value for "Japan" inside Capitals.
+A Dictionary named capitals exists.
+Inside capitals, "France" maps to "Paris".
+Print the value for "Japan" inside capitals.
 ```
 
 A dictionary assigned to a name is registered on the **entity graph** (see 4.32d). Property access (`name of u1`, `u1`'s name) works on both Entity and Dictionary.
@@ -215,14 +215,14 @@ A **backtick expression** (capture) yields **Text** (stdout), not ShellResult.
 ### 4.1 Variable Declaration
 
 ```
-A [Type] [named] [Name] exists.
+A [Type] [named] [name] exists.
 ```
 
 `named` is optional. Also supports implicit declaration via assignment:
 
 ```
-X is 42.         # Auto-creates Number
-Name is "Alice". # Auto-creates Text
+x is 42.         # Auto-creates Number
+name is "Alice". # Auto-creates Text
 ```
 
 Explicit declarations set the type's default value (`Number` → 0, `Text` → "", etc.). Implicit declarations infer the type from the value.
@@ -230,8 +230,8 @@ Explicit declarations set the type's default value (`Number` → 0, `Text` → "
 ### 4.2 Assignment
 
 ```
-[Name] is [expression].
-[Entity]'s [property] is [expression].
+[name] is [expression].
+[entity]'s [property] is [expression].
 ```
 
 If the target variable does not exist, it is auto-created with the value's type (implicit declaration).
@@ -252,23 +252,28 @@ Lower [target] by [expression].
 Set [target] to [expression].
 ```
 
-Arithmetic mutation on numeric values. Supports entity properties: `Lower Primary's balance by 600.`
+Arithmetic mutation on numeric values. Supports entity properties: `Lower primary's balance by 600.`
 
 ### 4.5 Conditional (If/Otherwise)
 
 ```
-If [condition]:
+If [condition]
     [statements...]
-Otherwise:
+Otherwise
     [statements...]
 ```
 
-The `Otherwise:` clause is optional.
+The `Otherwise` clause is optional. No colon. A single statement may follow on the same line (handy in the REPL):
+
+```
+If x > 5 Print "yes" Otherwise Print "no".
+While n < 3 Increase n by 1.
+```
 
 ### 4.6 Loop (While)
 
 ```
-While [condition]:
+While [condition]
     [statements...]
 ```
 
@@ -277,19 +282,19 @@ Limited to 10,000 iterations for safety.
 ### 4.7 Iteration (For Every)
 
 ```
-For Every [variable] in [list]:
+For Every [variable] in [list]
     [statements...]
 ```
 
 ### 4.8 Verb Definition (Function)
 
-Slots are **types**, not parameter names. Inside the body, refer to the argument as `the Type` / `the Type's field` / `${Type}`.
+Slots are **types**, not parameter names. Inside the body, refer to the argument as `the Type` / `the Type's field`. Interpolation of a slot uses the small-case type name: `${person}`.
 
 ```
-To Greet a Person:
+To Greet a Person
     Print "Hello, " followed by the Person.
 
-To Double a Number:
+To Double a Number
     Result is the Number times 2.
 ```
 
@@ -351,7 +356,7 @@ Filters a list for entities matching the criteria. Results stored in `query_resu
 ### 4.15 Reactive Watch (Whenever)
 
 ```
-Whenever [entity]'s [property] changes:
+Whenever [entity]'s [property] changes
     [statements...]
 ```
 
@@ -394,17 +399,17 @@ A bare `` `command`. `` runs the command and prints stdout/stderr. English forms
 A backtick expression captures stdout (Unix command substitution):
 
 ```
-Listing is `ls -la`.
-Listing is the output of the shell command `ls -la`.
+listing is `ls -la`.
+listing is the output of the shell command `ls -la`.
 ```
 
 ### 4.20 Arithmetic Expressions
 
 ```
-X is 5 plus 3.
-X is 10 minus 4.
-X is 3 times 7.
-X is 20 divided by 4.
+x is 5 plus 3.
+x is 10 minus 4.
+x is 3 times 7.
+x is 20 divided by 4.
 ```
 
 Infix arithmetic operators with equal precedence.
@@ -412,10 +417,10 @@ Infix arithmetic operators with equal precedence.
 ### 4.21 Logic Operators
 
 ```
-If X is greater than 5 and Y is less than 10:
+If x is greater than 5 and y is less than 10
     ...
 
-If A or B:
+If a or b
     ...
 ```
 
@@ -424,20 +429,20 @@ Short-circuit evaluation: `and` stops at first false, `or` stops at first true.
 ### 4.22 Else-If Chains
 
 ```
-If condition1:
+If condition1
     ...
-Otherwise If condition2:
+Otherwise If condition2
     ...
-Otherwise If condition3:
+Otherwise If condition3
     ...
-Otherwise:
+Otherwise
     ...
 ```
 
 ### 4.23 For-Range Loops
 
 ```
-For Every Number from 1 to 10:
+For Every Number from 1 to 10
     Print _index.
 ```
 
@@ -463,13 +468,13 @@ Parses a JSON string into nested Dictionary/List values. Returns DictionaryValue
 ### 4.26 Try/Catch
 
 ```
-Try:
+Try
     ...
-Catch the error into ErrVar:
+Catch the error into err
     ...
 ```
 
-Executes the try block. If any ProseError is thrown, executes the catch block. The error message is bound to ErrVar (optional).
+Executes the try block. If any ProseError is thrown, executes the catch block. The error message is bound to `err` (optional).
 
 ### 4.27 Pipe Shell Commands
 
@@ -506,7 +511,7 @@ Loads and executes another Prose file in the current scope. Variables and verbs 
 ### 4.31 String Interpolation
 
 ```
-"Hello, ${Name}!"
+"Hello, ${name}!"
 ```
 
 Inside double-quoted strings, `${variable}` is replaced with the variable's string value at runtime. Use `\$` for a literal dollar sign.
@@ -586,7 +591,7 @@ Keep Scores filtered-by _ > 5.
 Print those.
 Print others.
 
-With "notes.txt" then:
+With "notes.txt" then
     Read the file there into Content.
 ```
 
@@ -608,17 +613,17 @@ Print balance of u1.
 
 ### 4.32e Teaching a verb
 
-`To Settle a Client:` names a new command. Every slot is a type. The call must supply a value of that type (`Number`/`Text`/`List`/`Dictionary`, or an Entity/Dictionary whose type/blueprint matches). Inside the body only type references work: `the Client`, `the Client's name`, `${Client}`.
+`To Settle a Client` names a new command. Every slot is a type. The call must supply a value of that type (`Number`/`Text`/`List`/`Dictionary`, or an Entity/Dictionary whose type/blueprint matches). Inside the body only type references work: `the Client`, `the Client's name`. Interpolation uses the small-case type name: `${client}`.
 
 ```
-To Settle a Client:
+To Settle a Client
     Set the Client's balanceDue to 0.
     Print "Settled " followed by the Client's name.
 
 Settle the Current Client.
 ```
 
-More than one type: `To Charge a Client using an Amount:`. The filler is a **role**: inside the body `the Amount` and `the using number` are that argument. At the call, `using` / `with` / `into` / `from` / `by` / `as` / `to` / `and` may be written or left out.
+More than one type: `To Charge a Client using an Amount`. The filler is a **role**: inside the body `the Amount` and `the using number` are that argument. At the call, `using` / `with` / `into` / `from` / `by` / `as` / `to` / `and` may be written or left out.
 
 `Charge the Current Client using 50.`
 
@@ -626,23 +631,23 @@ More than one type: `To Charge a Client using an Amount:`. The filler is a **rol
 
 **Map** -- transform every item using a verb:
 ```
-Doubled is Every item in Numbers transformed by Double.
+doubled is Every item in numbers transformed by Double.
 ```
 
 **Filter** -- keep items matching a condition (item bound to `_`):
 ```
-Big is Numbers filtered-by _ > 3.
+big is numbers filtered-by _ > 3.
 ```
 
 **Sum** -- numeric total of a list:
 ```
-Total is the sum of Numbers.
+total is the sum of numbers.
 ```
 
 ### 4.34 Extended Whenever (Variable Watch)
 
 ```
-Whenever [variable] changes:
+Whenever [variable] changes
     [statements...]
 ```
 
@@ -651,10 +656,10 @@ Works on any variable, not just entity properties. Fires on every assignment.
 ### 4.35 Timed Blocks
 
 ```
-After N seconds:
+After N seconds
     [statements...]
 
-Every N seconds:
+Every N seconds
     [statements...]
 ```
 
@@ -672,7 +677,7 @@ Copy the file [from] to [to].
 Rename the file [from] to [to].
 Touch the file [path].
 Append [expr] to the file [path].
-Files is the list of files in [dir].
+files is the list of files in [dir].
 ```
 
 | Verb | Perl / tcsh analog | Description |
@@ -744,12 +749,12 @@ Works on Entity and Dictionary. Missing dictionary keys used via `the value for 
 | Subtraction | `X minus Y` | Numeric subtraction |
 | Multiplication | `X times Y` | Numeric multiplication |
 | Division | `X divided by Y` | Numeric division |
-| Greater than | `X is greater than Y` | Numeric comparison |
-| Less than | `X is less than Y` | Numeric comparison |
-| Greater or equal | `X is greater than or equal to Y` | Numeric comparison |
-| Less or equal | `X is less than or equal to Y` | Numeric comparison |
-| Equal to | `X is equal to Y` | String equality |
-| Not equal to | `X is not equal to Y` | String inequality |
+| Greater than | `x is greater than y` | Numeric comparison |
+| Less than | `x is less than y` | Numeric comparison |
+| Greater or equal | `x is greater than or equal to y` | Numeric comparison |
+| Less or equal | `x is less than or equal to y` | Numeric comparison |
+| Equal to | `x is equal to y` | String equality |
+| Not equal to | `x is not equal to y` | String inequality |
 | Logical AND | `X and Y` | Short-circuit logical and |
 | Logical OR | `X or Y` | Short-circuit logical or |
 
@@ -913,13 +918,13 @@ Source Text → Lexer → Tokens → Parser → AST → Interpreter → Output
 
 Errors include line and column information for debugging.
 
-The parser includes error recovery: if a statement cannot be parsed, it skips to the next PERIOD and continues. This allows partial execution of programs with syntax errors.
+The parser includes error recovery (REPL only): if a statement cannot be parsed, it skips to the next period or newline and continues.
 
 ---
 
 ## 9. Limitations
 
-1. **No user-defined type/blueprint bodies**: `A User named Alice exists` is nominal; fields are ad hoc
+1. **No user-defined type/blueprint bodies**: `A User named alice exists` is nominal; fields are ad hoc
 2. **No first-class boolean type**: Comparisons yield Number 1 or 0
 3. **Goto**: Labels are registered on the top-level statement list only. `Jump` inside a verb or indented block cannot target an inner label
 4. **Map stringifies**: `Every item in L transformed by V` passes each item as Text to the verb
@@ -943,22 +948,22 @@ See `examples/bank_simple.prose` for a complete working example demonstrating di
 Goto uses a `GotoSignal` exception. A first pass registers all `Label` positions. During execution, `Jump` throws `GotoSignal(labelName)`. The interpreter's main loop catches it, looks up the label's statement index, and repositions the program counter. This means Goto only works at the top level of a program, not inside nested verb bodies.
 
 ### 11.2 Verb Return
-Verb definitions use `ReturnSignal`. When `Result is X.` executes inside a verb, it throws `ReturnSignal(value)`. The verb caller catches this and returns the value. At the top level, `ReturnSignal` is also caught but the value is simply captured (the program does not terminate — only statements inside verbs exit early via `Result`).
+Verb definitions use `ReturnSignal`. When `Result is x.` executes inside a verb, it throws `ReturnSignal(value)`. The verb caller catches this and returns the value. At the top level, `ReturnSignal` is also caught but the value is simply captured (the program does not terminate — only statements inside verbs exit early via `Result`).
 
 ### 11.3 Reactive Watchers
 `Whenever` blocks register `ReactiveWatcher` objects in the Environment. When an entity property or variable is modified (via assignment or mutation), watchers are fired synchronously. Watchers execute in a child interpreter sharing the output buffer. Recursion is limited to 100 nested invocations to prevent infinite loops.
 
 ### 11.4 Implicit Declaration
-When `X is 42.` is executed and `X` does not exist, the interpreter auto-creates the variable with the value's type (NumberValue, TextValue, ListValue, etc.). Explicit declarations (`A Number X exists.`) set the type's default value (Number → 0, Text → "", etc.).
+When `x is 42.` is executed and `x` does not exist, the interpreter auto-creates the variable with the value's type (NumberValue, TextValue, ListValue, etc.). Explicit declarations (`A Number x exists.`) set the type's default value (Number → 0, Text → "", etc.).
 
 ### 11.5 Parser Error Recovery
-If a statement cannot be parsed (no pattern matches), the parser skips tokens until the next PERIOD and continues. This allows programs with syntax errors to partially execute. Warnings are logged via the Logger.
+If a statement cannot be parsed (no pattern matches) and recovery is on, the parser skips tokens until the next period or newline and continues. File mode does not recover.
 
 ### 11.6 Side-Note Evaluation
 Parenthesized expressions `( ... )` are parsed by `parseInlineStatement`, which first tries verb call, then print, then assignment, then falls back to expression parsing. The result is wrapped in a `CallExpr('__paren__', ...)` which the interpreter evaluates and converts to text.
 
 ### 11.7 String Interpolation Internals
-The lexer's `_readString` detects `${var}` inside double-quoted strings and produces an `INTERPOLATED` token containing a JSON array of segments: `[{t:'text',v:'...'}, {t:'var',n:'Name'}, ...]`. The interpreter resolves variable references at evaluation time.
+The lexer's `_readString` detects `${var}` inside double-quoted strings and produces an `INTERPOLATED` token containing a JSON array of segments: `[{t:'text',v:'...'}, {t:'var',n:'name'}, ...]`. The interpreter resolves variable references at evaluation time. Interpolated names must start with a lowercase letter.
 
 ---
 
@@ -967,7 +972,7 @@ The lexer's `_readString` detects `${var}` inside double-quoted strings and prod
 ```
 prose/
 ├── src/
-│   ├── index.js              CLI entry point (file mode; REPL disabled)
+│   ├── index.js              CLI entry point (REPL or file)
 │   ├── core/
 │   │   ├── Value.js          Runtime value types (Number, Text, Entity, List, Dictionary, Null, ShellResult)
 │   │   ├── Environment.js    Scope chain, verb/label/watcher registries
@@ -985,7 +990,7 @@ prose/
 │   │   └── Interpreter.js    Tree-walking evaluator with Goto, Whenever, Try/Catch, shell, file I/O
 │   └── shell/
 │       ├── Terminal.js       UI utilities (chalk, boxen, ora, figlet, gradient-string)
-│       └── Shell.js          File runner (interactive REPL currently disabled)
+│       └── Shell.js          Interactive REPL and file runner
 ├── examples/                 Example .prose programs (9 files)
 ├── test/                     Test suite (Node.js native test runner)
 ├── dist/                     Build output (prose.exe via Bun compile)
@@ -1003,11 +1008,12 @@ prose/
 ### Development
 ```bash
 npm install          # Install TUI dependencies
+node src/index.js                         # Interactive REPL
 node src/index.js examples/hello.prose   # Run a script
-npm test             # Run 16-test suite
+npm test             # Run the test suite
 ```
 
-The interactive REPL is currently disabled (multiline input is buggy). See `TODO.md`.
+The REPL runs one statement per line. Periods are optional. Same-line bodies are allowed: `If x > 5 Print "yes"`. Do not write a colon after `If` / `While` / `To`.
 
 ### Standalone Executable
 ```bash

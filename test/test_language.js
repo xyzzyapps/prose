@@ -15,7 +15,7 @@
  *  11. Heredoc and quotes
  *  12. Fail-fast vs recover
  *  13. Lexer details
- *  14. REPL multiline editing
+ *  14. REPL completion
  *
  * Run: node --test test/test_language.js
  */
@@ -26,7 +26,7 @@ import { Lexer } from '../src/lexer/Lexer.js';
 import { Parser } from '../src/parser/Parser.js';
 import { Interpreter } from '../src/interpreter/Interpreter.js';
 import { SyntaxError, TypeError as ProseTypeError, RuntimeError } from '../src/core/Errors.js';
-import { completer, applyReplContinuation } from '../src/shell/Terminal.js';
+import { completer } from '../src/shell/Terminal.js';
 
 function runCode(source) {
   const lexer = new Lexer(source, '<test>');
@@ -52,6 +52,10 @@ describe('1. Capitals', () => {
     assert.throws(() => parseOnly('print "hi".\n'), SyntaxError);
   });
 
+  it('rejects a colon after If', () => {
+    assert.throws(() => parseOnly('If x > 5:\n    Print "yes".\n'), SyntaxError);
+  });
+
   it('accepts Print', () => {
     assert.equal(runCode('Print "hi".\n').output, 'hi');
   });
@@ -62,6 +66,40 @@ describe('1. Capitals', () => {
 
   it('accepts capital builtin', () => {
     assert.equal(runCode('Print (Uppercase "hi").\n').output, 'HI');
+  });
+
+  it('rejects a capitalized variable assignment', () => {
+    assert.throws(() => parseOnly('Age is 30.\n'), SyntaxError);
+  });
+
+  it('accepts a lowercase variable assignment', () => {
+    assert.equal(runCode('age is 30.\nPrint age.\n').output, '30');
+  });
+
+  it('rejects a capitalized declaration name', () => {
+    assert.throws(() => parseOnly('A Number named Age exists.\n'), SyntaxError);
+  });
+
+  it('rejects a capitalized interpolation name', () => {
+    assert.throws(() => parseOnly('name is "Ada".\nPrint "${Name}".\n'), SyntaxError);
+  });
+
+  it('accepts camelCase, snake_case, and kebab-case variables', () => {
+    const { interpreter } = runCode('myScore is 1.\nmy_score is 2.\nmy-score is 3.\n');
+    assert.equal(interpreter.env.lookup('myScore').value, 1);
+    assert.equal(interpreter.env.lookup('my_score').value, 2);
+    assert.equal(interpreter.env.lookup('my-score').value, 3);
+  });
+
+  it('rejects a capitalized entity name', () => {
+    assert.throws(() => parseOnly('A User named Alice exists.\n'), SyntaxError);
+  });
+
+  it('interpolates a type slot with a small-case name', () => {
+    assert.equal(
+      runCode('To Greet a Person\n    Print "Hi ${person}".\nA Person named ada exists.\nGreet ada.\n').output,
+      'Hi ada'
+    );
   });
 });
 
@@ -87,11 +125,11 @@ describe('3. True, False, Not', () => {
   });
 
   it('Not False is true', () => {
-    assert.equal(runCode('If Not False:\n    Print "y".\n').output, 'y');
+    assert.equal(runCode('If Not False\n    Print "y".\n').output, 'y');
   });
 
   it('! is Not', () => {
-    assert.equal(runCode('If !False:\n    Print "y".\n').output, 'y');
+    assert.equal(runCode('If !False\n    Print "y".\n').output, 'y');
   });
 
   it('lowercase true is not a boolean', () => {
@@ -127,7 +165,7 @@ describe('4. Numbers and operators', () => {
   });
 
   it('comparisons', () => {
-    assert.equal(runCode('If 3 > 1 and 2 == 2:\n    Print "ok".\n').output, 'ok');
+    assert.equal(runCode('If 3 > 1 and 2 == 2\n    Print "ok".\n').output, 'ok');
   });
 
   it('division by zero', () => {
@@ -171,7 +209,7 @@ describe('6. Lists: transformed-by, filtered-by, Keep', () => {
   it('transformed-by Double', () => {
     assert.equal(
       runCode(
-        'To Double a Number:\n    Result is the Number * 2.\nA List named scores exists.\nscores contains 1, 2, and 3.\nPrint scores transformed-by Double.\n'
+        'To Double a Number\n    Result is the Number * 2.\nA List named scores exists.\nscores contains 1, 2, and 3.\nPrint scores transformed-by Double.\n'
       ).output,
       '[2, 4, 6]'
     );
@@ -204,7 +242,7 @@ describe('7. Break and Continue', () => {
   it('Break leaves While', () => {
     assert.equal(
       runCode(
-        'n = 0.\nWhile True:\n    Increase n by 1.\n    If n == 3:\n        Break.\nPrint n.\n'
+        'n = 0.\nWhile True\n    Increase n by 1.\n    If n == 3\n        Break.\nPrint n.\n'
       ).output,
       '3'
     );
@@ -213,7 +251,7 @@ describe('7. Break and Continue', () => {
   it('Continue skips the rest of a For-Every body', () => {
     assert.equal(
       runCode(
-        'A List named xs exists.\nxs contains 1, 2, and 3.\nFor-Every n in xs:\n    If n == 2:\n        Continue.\n    Print n.\n'
+        'A List named xs exists.\nxs contains 1, 2, and 3.\nFor-Every n in xs\n    If n == 2\n        Continue.\n    Print n.\n'
       ).output,
       '1\n3'
     );
@@ -228,7 +266,7 @@ describe('8. Fields', () => {
   it("possessive and dot are the same field", () => {
     assert.equal(
       runCode(
-        'A User named Ada exists.\nAda\'s age is 36.\nPrint Ada.age.\nPrint Ada\'s age.\n'
+        'A User named ada exists.\nada\'s age is 36.\nPrint ada.age.\nPrint ada\'s age.\n'
       ).output,
       '36\n36'
     );
@@ -242,22 +280,22 @@ describe('8. Fields', () => {
 describe('9. Typed verbs', () => {
   it('Greet a Person rejects a string', () => {
     assert.throws(
-      () => runCode('To Greet a Person:\n    Print the Person.\nGreet "Ada".\n'),
+      () => runCode('To Greet a Person\n    Print the Person.\nGreet "Ada".\n'),
       ProseTypeError
     );
   });
 
   it('Greet a Person accepts an entity', () => {
     assert.equal(
-      runCode('To Greet a Person:\n    Print the Person.\nA Person named Ada exists.\nGreet Ada.\n').output,
-      'Ada'
+      runCode('To Greet a Person\n    Print the Person.\nA Person named ada exists.\nGreet ada.\n').output,
+      'ada'
     );
   });
 
   it('alias last word matches type', () => {
     assert.equal(
       runCode(
-        'Set u1 to Dictionary of type is "User" and name is "Al".\nCall u1 the Current Client.\nTo Settle a Client:\n    Print the Client\'s name.\nSettle the Current Client.\n'
+        'Set u1 to Dictionary of type is "User" and name is "Al".\nCall u1 the Current Client.\nTo Settle a Client\n    Print the Client\'s name.\nSettle the Current Client.\n'
       ).output,
       'Al'
     );
@@ -307,6 +345,13 @@ describe('12. Fail-fast vs recover', () => {
     const result = interpreter.interpret(program);
     assert.equal(result.output, 'y');
   });
+
+  it('REPL recover skips to newline when the period is omitted', () => {
+    const program = parseOnly('print "x"\nPrint "y"\n', true);
+    const interpreter = new Interpreter();
+    const result = interpreter.interpret(program);
+    assert.equal(result.output, 'y');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -322,52 +367,22 @@ describe('13. Lexer details', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 14. REPL multiline editing
+// 14. REPL completion
 // ---------------------------------------------------------------------------
 
-describe('14. REPL multiline editing', () => {
-  it('Tab on an empty line inserts 4 spaces', () => {
+describe('14. REPL completion', () => {
+  it('Tab on an empty line does not insert indent', () => {
     const [hits] = completer('');
-    assert.deepEqual(hits, ['    ']);
+    assert.deepEqual(hits, []);
   });
 
-  it('Tab on an indented empty line inserts 4 more spaces', () => {
-    const [hits] = completer('    ');
-    assert.deepEqual(hits, ['        ']);
+  it('keyword completion', () => {
+    const [hits] = completer('Pri');
+    assert.ok(hits.includes('Print'));
   });
 
-  it('keyword completion keeps leading indent', () => {
-    const [hits] = completer('    Pri');
-    assert.ok(hits.includes('    Print'));
-    assert.ok(hits.every(h => h.startsWith('    ')));
-  });
-
-  it('does not match every keyword on a blank continuation', () => {
-    const [hits] = completer('');
-    assert.equal(hits.length, 1);
-  });
-
-  it('auto-indents a body line with no spaces', () => {
-    const step = applyReplContinuation('Print "y".', 4);
-    assert.equal(step.text, '    Print "y".');
-    assert.equal(step.indent, 4);
-    assert.equal(step.endBlock, false);
-  });
-
-  it('blank line ends the block', () => {
-    const step = applyReplContinuation('', 4);
-    assert.equal(step.endBlock, true);
-  });
-
-  it('Otherwise stays at column 0', () => {
-    const step = applyReplContinuation('Otherwise:', 4);
-    assert.equal(step.text, 'Otherwise:');
-    assert.equal(step.indent, 0);
-  });
-
-  it('keeps spaces the user already typed', () => {
-    const step = applyReplContinuation('        Print "z".', 4);
-    assert.equal(step.text, '        Print "z".');
-    assert.equal(step.indent, 8);
+  it('dot-command completion', () => {
+    const [hits] = completer('.ex');
+    assert.ok(hits.includes('.exit'));
   });
 });

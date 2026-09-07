@@ -1,75 +1,75 @@
 # Comprehensive test of all new features
 
 # --- Arithmetic Expressions ---
-A Number named X exists.
-X is 5 plus 3.
-Print "5 + 3 = " followed by X.
+A Number named x exists.
+x is 5 plus 3.
+Print "5 + 3 = " followed by x.
 
-A Number named Y exists.
-Y is 10 minus 4.
-Print "10 - 4 = " followed by Y.
+A Number named y exists.
+y is 10 minus 4.
+Print "10 - 4 = " followed by y.
 
-A Number named Z exists.
-Z is 3 times 7.
-Print "3 * 7 = " followed by Z.
+A Number named z exists.
+z is 3 times 7.
+Print "3 * 7 = " followed by z.
 
-A Number named W exists.
-W is 20 divided by 4.
-Print "20 / 4 = " followed by W.
+A Number named w exists.
+w is 20 divided by 4.
+Print "20 / 4 = " followed by w.
 
 # --- Comparisons ---
-A Number named Score exists.
-Score is 85.
+A Number named score exists.
+score is 85.
 
-If Score is greater than or equal to 80:
+If score is greater than or equal to 80
     Print "Grade: A".
-Otherwise If Score is greater than or equal to 70:
+Otherwise If score is greater than or equal to 70
     Print "Grade: B".
-Otherwise If Score is greater than or equal to 60:
+Otherwise If score is greater than or equal to 60
     Print "Grade: C".
-Otherwise:
+Otherwise
     Print "Grade: F".
 
 # --- Logic operators ---
-A Number named A exists.
-A is 10.
+A Number named a exists.
+a is 10.
 
-A Number named B exists.
-B is 20.
+A Number named b exists.
+b is 20.
 
-If A is greater than 5 and B is less than 30:
+If a is greater than 5 and b is less than 30
     Print "Both conditions true".
 
-If A is less than 5 or B is greater than 15:
+If a is less than 5 or b is greater than 15
     Print "At least one condition true".
 
 # --- Equality ---
-If Score is equal to 85:
+If score is equal to 85
     Print "Score equals 85".
 
-If Score is not equal to 100:
+If score is not equal to 100
     Print "Score is not 100".
 
 # --- File I/O ---
 Write "Hello from Prose file I/O!" to the file "test_output.txt".
 
-A Text named FileContent exists.
-Read the file "test_output.txt" into FileContent.
-Print "File content: " followed by FileContent.
+A Text named file-content exists.
+Read the file "test_output.txt" into file-content.
+Print "File content: " followed by file-content.
 
 # --- JSON Parsing ---
-A Text named JsonSource exists.
-JsonSource is "{\"name\": \"Alice\", \"age\": 30, \"skills\": [\"coding\", \"design\"]}".
+A Text named json-source exists.
+json-source is "{\"name\": \"Alice\", \"age\": 30, \"skills\": [\"coding\", \"design\"]}".
 
-A Dictionary named Parsed exists.
-Parsed is the parsed JSON of JsonSource.
+A Dictionary named parsed exists.
+parsed is the parsed JSON of json-source.
 
-Print "JSON name: " followed by (the value for "name" inside Parsed).
+Print "JSON name: " followed by (the value for "name" inside parsed).
 
 # --- Try/Catch ---
-Try:
+Try
     Execute the shell command `nonexistent-command-xyz`.
-Catch the error into ErrMsg:
-    Print "Caught error: " followed by ErrMsg.
+Catch the error into err-msg
+    Print "Caught error: " followed by err-msg.
 
 Print "Program continues after error handling".

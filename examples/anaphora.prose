@@ -7,13 +7,13 @@ Print it's name.
 Set the Current Client's balance to 250.
 Print balance of u1.
 
-A List named Scores exists.
-Scores contains 1, 2, and 9.
-Keep Scores filtered-by _ > 5.
+A List named scores exists.
+scores contains 1, 2, and 9.
+Keep scores filtered-by _ > 5.
 Print those.
 Print others.
 
-To Settle a Client:
+To Settle a Client
     Set the Client's balance to 0.
     Print "Settled " followed by the Client's name.
 

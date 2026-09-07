@@ -45,11 +45,11 @@ export class Program extends ASTNode {
 // Statements
 // ---------------------------------------------------------------------------
 
-/** `A Number named X exists.` or `A User named Alice exists.` */
+/** `A Number named x exists.` or `A User named alice exists.` */
 export class VariableDeclaration extends Stmt {
   /**
    * @param {string} typeName   e.g. "Number", "Text", "User"
-   * @param {string} varName    e.g. "X", "Alice"
+   * @param {string} varName    e.g. "x", "alice"
    * @param {number} line
    * @param {number} column
    */
@@ -61,7 +61,7 @@ export class VariableDeclaration extends Stmt {
   nodeType() { return 'VariableDeclaration'; }
 }
 
-/** `X is 30.` or `Alice's age is 25.` */
+/** `x is 30.` or `alice's age is 25.` */
 export class Assignment extends Stmt {
   /**
    * @param {string|null} entity   entity name for property assign, or null

@@ -3,8 +3,8 @@
 
 # --- DSL Block Example: Simple Make-like rule parser ---
 
-To ProcessRules a Text:
-    Print "Processing DSL rules:" followed by the Text.
+To ProcessRules a Text
+    Print "Processing DSL rules:" followed by "${text}".
     Print "Rule count: 3 items processed".
     Print "DSL parsed successfully".
 
@@ -27,7 +27,7 @@ Execute the shell command `node --version`.
 
 # --- Capturing Shell Output ---
 
-A Text named SystemInfo exists.
-SystemInfo is `echo Prose-OS-Integration`.
+A Text named system-info exists.
+system-info is `echo Prose-OS-Integration`.
 
-Print "Captured output:" followed by SystemInfo.
+Print "Captured output:" followed by system-info.

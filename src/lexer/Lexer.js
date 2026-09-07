@@ -10,7 +10,7 @@
  *   - Words, punctuation, comments
  */
 
-import { Token, TokenType } from './Token.js';
+import { Token, TokenType, isSmallVariableName, smallVariableHint } from './Token.js';
 import { SyntaxError } from '../core/Errors.js';
 import { Logger } from '../core/Logger.js';
 
@@ -166,11 +166,8 @@ export class Lexer {
         continue;
       }
 
-      // Colon
       if (this.source[this.pos] === ':') {
-        this._advance();
-        this._emit(TokenType.COLON, ':');
-        continue;
+        throw new SyntaxError('Do not use ":"', this.line, this.column);
       }
 
       // Comma
@@ -261,11 +258,6 @@ export class Lexer {
             while (this.pos < this.source.length &&
                    this._isWordChar(this.source[this.pos])) {
               terminator += this.source[this.pos];
-              this._advance();
-            }
-
-            // Skip optional colon
-            if (this.pos < this.source.length && this.source[this.pos] === ':') {
               this._advance();
             }
 
@@ -464,7 +456,14 @@ export class Lexer {
         if (this.pos < this.source.length) {
           this._advance(); // skip }
         }
-        segments.push({ t: 'var', n: varName.trim() });
+        const trimmed = varName.trim();
+        if (trimmed && !trimmed.includes(' ') && !isSmallVariableName(trimmed)) {
+          throw new SyntaxError(
+            `Variable names start with a lowercase letter (use "\${${smallVariableHint(trimmed)}}")`,
+            startLine, startCol
+          );
+        }
+        segments.push({ t: 'var', n: trimmed });
         continue;
       }
 
@@ -501,14 +500,8 @@ export class Lexer {
     // Read the terminator word
     let terminator = '';
     while (this.pos < this.source.length &&
-           this._isWordChar(this.source[this.pos]) &&
-           this.source[this.pos] !== ':') {
+           this._isWordChar(this.source[this.pos])) {
       terminator += this.source[this.pos];
-      this._advance();
-    }
-
-    // Skip the colon after terminator
-    if (this.pos < this.source.length && this.source[this.pos] === ':') {
       this._advance();
     }
 

@@ -1,30 +1,30 @@
 # String, list, dictionary, file, and shell builtins
 
-A Text named Greeting exists.
-Greeting is (Uppercase "hello prose").
-Print Greeting.
+A Text named greeting exists.
+greeting is (Uppercase "hello prose").
+Print greeting.
 
-A Text named Piece exists.
-Piece is (Substr "abcdef" 2 3).
-Print Piece.
+A Text named piece exists.
+piece is (Substr "abcdef" 2 3).
+Print piece.
 
-A List named Letters exists.
-Letters contains "c", "a", and "b".
-Print (Sort Letters).
-Print (Join Letters ",").
+A List named letters exists.
+letters contains "c", "a", and "b".
+Print (Sort letters).
+Print (Join letters ",").
 
-A Dictionary named Capitals exists.
-Inside Capitals, "France" maps to "Paris".
-Inside Capitals, "Japan" maps to "Tokyo".
-Print (keys Capitals).
-Print (Haskey Capitals "France").
+A Dictionary named capitals exists.
+Inside capitals, "France" maps to "Paris".
+Inside capitals, "Japan" maps to "Tokyo".
+Print (Keys capitals).
+Print (Haskey capitals "France").
 
 Write "line1" to the file "_esh_tmp.txt".
 Append "line2" to the file "_esh_tmp.txt".
 Print (Cat "_esh_tmp.txt").
 Print (Fileexists "_esh_tmp.txt").
-Print (isfile "_esh_tmp.txt").
+Print (Isfile "_esh_tmp.txt").
 Delete the file "_esh_tmp.txt".
 
-Out is `echo shell-ok`.
-Print Out.
+out is `echo shell-ok`.
+Print out.

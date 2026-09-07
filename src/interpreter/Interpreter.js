@@ -503,7 +503,7 @@ export class Interpreter {
       this.env.fireWatchers(stmt.entity, stmt.target, entity, value, this);
       logger.debug(`Set ${stmt.entity}'s ${stmt.target} = ${this.stringify(value)}`);
     } else {
-      // Simple variable assignment: X is 30.
+      // Simple variable assignment: x is 30.
       // Auto-declare if variable doesn't exist yet
       const existing = this.env.lookup(stmt.target);
       if (!existing) {

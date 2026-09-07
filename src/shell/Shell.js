@@ -6,7 +6,7 @@
  *   - Loading spinners for long operations (ora)
  *   - Tab completion for dot-commands and Prose keywords
  *   - Source context in error messages
- *   - Multi-line input with continuation markers
+ *   - One statement per line (periods optional)
  *   - Command history with search (Ctrl+R via readline)
  *   - State persistence between lines
  */
@@ -21,10 +21,10 @@ import { Interpreter } from '../interpreter/Interpreter.js';
 import { Environment } from '../core/Environment.js';
 import { ProseError } from '../core/Errors.js';
 import {
-  showBanner, makePrompt, makeContPrompt,
+  showBanner, makePrompt,
   printSuccess, printInfo, printWarning, printError,
   printDivider, printBox, createSpinner,
-  createReadline, showSourceContext, applyReplContinuation,
+  createReadline, showSourceContext,
 } from './Terminal.js';
 import chalk from 'chalk';
 
@@ -42,14 +42,12 @@ export class Shell {
     this.workDir = process.cwd();
     /** @type {boolean} suppress banner on reload */
     this._firstRun = true;
-    /** @type {string|null} queued multiline block */
-    this._multilineBuffer = null;
-    /** @type {number} current indent for multiline */
-    this._multilineIndent = 0;
-    /** @type {string|null} open heredoc terminator while collecting */
-    this._heredocTerm = null;
     /** @type {boolean} */
     this._handlingLine = false;
+    /** @type {string[]} */
+    this._lineQueue = [];
+    /** @type {boolean} */
+    this._closing = false;
   }
 
   // -----------------------------------------------------------------------
@@ -57,10 +55,7 @@ export class Shell {
   // -----------------------------------------------------------------------
 
   async start() {
-    // Interactive REPL is disabled until multiline input is fixed. See TODO.md.
-    console.error('Error: The interactive REPL is currently disabled (multiline input is buggy).');
-    console.error('Run a script: prose <file.prose>');
-    process.exit(1);
+    await this._startInteractive();
   }
 
   async _startInteractive() {
@@ -78,19 +73,12 @@ export class Shell {
       void this._onLine(line);
     });
     this.rl.on('close', () => {
-      console.log(chalk.dim('\n  Goodbye.\n'));
-      process.exit(0);
+      void this._onClose();
     });
 
     this.rl.on('SIGINT', () => {
-      if (this._multilineBuffer !== null) {
-        this._clearMultiline();
-        console.log(chalk.dim('\n  (cancelled)'));
-        this._setMainPrompt();
-      } else {
-        console.log(chalk.dim('\n  Press Ctrl+C again or type .exit to quit.'));
-        this._setMainPrompt();
-      }
+      console.log(chalk.dim('\n  Press Ctrl+C again or type .exit to quit.'));
+      this._setMainPrompt();
     });
 
     this._setMainPrompt();
@@ -140,70 +128,34 @@ export class Shell {
   // -----------------------------------------------------------------------
 
   async _onLine(line) {
+    this._lineQueue.push(line);
     if (this._handlingLine) return;
     this._handlingLine = true;
     this.rl.pause();
     try {
-      await this._handleLine(line);
+      while (this._lineQueue.length) {
+        const next = this._lineQueue.shift();
+        await this._handleLine(next);
+      }
     } catch (e) {
       this._printError(e);
       this._setMainPrompt();
     } finally {
       this._handlingLine = false;
-      if (this.rl) this.rl.resume();
+      if (this.rl && !this._closing) this.rl.resume();
     }
   }
 
-  _clearMultiline() {
-    this._multilineBuffer = null;
-    this._multilineIndent = 0;
-    this._heredocTerm = null;
-  }
-
-  _noteHeredoc(line) {
-    if (this._heredocTerm) {
-      if (line.trim() === this._heredocTerm) this._heredocTerm = null;
-      return;
-    }
-    const m = line.match(/<<(\S+)\s*$/);
-    if (m) this._heredocTerm = m[1];
-  }
-
-  _promptContinuation() {
-    this.rl.setPrompt(makeContPrompt(this._multilineIndent));
-    this.rl.prompt();
+  async _onClose() {
+    if (this._closing) return;
+    this._closing = true;
+    console.log(chalk.dim('\n  Goodbye.\n'));
+    process.exit(0);
   }
 
   async _handleLine(line) {
     const cleaned = line.replace(/^\uFEFF/, '').replace(/^\u200B/, '');
     const trimmed = cleaned.trim();
-
-    if (this._multilineBuffer !== null) {
-      if (this._heredocTerm) {
-        this._multilineBuffer += cleaned + '\n';
-        this._noteHeredoc(cleaned);
-        this._promptContinuation();
-        return;
-      }
-
-      const step = applyReplContinuation(cleaned, this._multilineIndent);
-      if (step.endBlock) {
-        const fullText = this._multilineBuffer + '\n';
-        this._clearMultiline();
-        await this._executeCode(fullText);
-        this._setMainPrompt();
-        return;
-      }
-
-      this._multilineIndent = step.indent;
-      if (step.text.trim().endsWith(':')) {
-        this._multilineIndent = step.indent + 4;
-      }
-      this._multilineBuffer += step.text + '\n';
-      this._noteHeredoc(step.text);
-      this._promptContinuation();
-      return;
-    }
 
     if (trimmed.startsWith('.')) {
       await this._handleCommand(trimmed);
@@ -219,22 +171,7 @@ export class Shell {
 
     this.history.push(trimmed);
     if (this.history.length > 1000) this.history.shift();
-
-    const startsBlock = trimmed.endsWith(':');
-    const startsHeredoc = /<<\S+\s*$/.test(trimmed);
-
-    if (startsBlock || startsHeredoc) {
-      this._multilineBuffer = cleaned + '\n';
-      this._multilineIndent = startsBlock ? 4 : 0;
-      this._heredocTerm = null;
-      this._noteHeredoc(cleaned);
-      this._promptContinuation();
-      return;
-    }
-
-    let stmt = cleaned.trim();
-    if (!stmt.endsWith('.')) stmt += '.';
-    await this._executeCode(stmt + '\n');
+    await this._executeCode(cleaned + '\n');
     this._setMainPrompt();
   }
 
@@ -324,11 +261,9 @@ export class Shell {
       '',
       `${chalk.bold.cyan('Tips')}`,
       '',
-      `• Prose statements are English sentences ending with ${chalk.yellow('.')}`,
-      `• Lines ending with ${chalk.yellow(':')} start a multi-line block (blank line ends it)`,
-      `• Continuation lines are indented for you; ${chalk.yellow('Tab')} adds 4 spaces`,
-      `• ${chalk.yellow('Tab')} also completes keywords (indent is kept)`,
-      `• ${chalk.yellow('Ctrl+C')} cancels multi-line input`,
+      `• One statement per line; periods are optional`,
+      `• Same-line blocks: ${chalk.yellow('If x > 5 Print "yes" Otherwise Print "no"')}`,
+      `• ${chalk.yellow('Tab')} completes keywords`,
       `• Variables defined in the REPL persist between lines`,
     ].join('\n');
 

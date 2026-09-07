@@ -2,30 +2,30 @@
 # Demonstrates all basic Prose data types.
 
 # Numbers
-A Number named Age exists.
-Age is 30.
-Print "Age is " followed by Age.
+A Number named age exists.
+age is 30.
+Print "Age is " followed by age.
 
 # Text
-A Text named Name exists.
-Name is "Alice".
-Print "Name is " followed by Name.
+A Text named name exists.
+name is "Alice".
+Print "Name is " followed by name.
 
 # Entity (object)
-A User named Alice exists.
-Alice's age is 25.
-Alice's role is "Administrator".
-Print Alice's role.
+A User named alice exists.
+alice's age is 25.
+alice's role is "Administrator".
+Print alice's role.
 
 # List
-A List named Staff exists.
-Staff contains Alice.
+A List named staff exists.
+staff contains alice.
 
 # Dictionary
-A Dictionary named Capitals exists.
-Inside Capitals, "France" maps to "Paris".
-Inside Capitals, "Japan" maps to "Tokyo".
+A Dictionary named capitals exists.
+Inside capitals, "France" maps to "Paris".
+Inside capitals, "Japan" maps to "Tokyo".
 
-A Text named Destination exists.
-Destination is the value for "Japan" inside Capitals.
-Print "The capital of Japan is " followed by Destination.
+A Text named destination exists.
+destination is the value for "Japan" inside capitals.
+Print "The capital of Japan is " followed by destination.
